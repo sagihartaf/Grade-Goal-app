@@ -1,16 +1,15 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Check, Crown, Loader2, Sparkles } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { Check, Crown, Sparkles } from "lucide-react";
+import { useProStatus } from "@/hooks/useProStatus";
 
 interface SubscriptionData {
   subscriptionTier: string;
-  stripeSubscriptionId: string | null;
 }
 
 export default function Subscription() {
@@ -18,29 +17,7 @@ export default function Subscription() {
     queryKey: ["/api/subscription"],
   });
 
-  const checkoutMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/stripe/create-checkout-session", {});
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    },
-  });
-
-  const portalMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/stripe/create-portal-session", {});
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    },
-  });
+  const { redirectToCheckout } = useProStatus();
 
   const isPro = subscription?.subscriptionTier === "pro";
 
@@ -138,34 +115,17 @@ export default function Subscription() {
               </ul>
 
               {isPro ? (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => portalMutation.mutate()}
-                  disabled={portalMutation.isPending}
-                  data-testid="button-manage-subscription"
-                >
-                  {portalMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    "נהל מנוי"
-                  )}
-                </Button>
+                <div className="text-center text-sm text-muted-foreground py-2">
+                  אתם מנויי Pro פעילים
+                </div>
               ) : (
                 <Button
                   className="w-full"
-                  onClick={() => checkoutMutation.mutate()}
-                  disabled={checkoutMutation.isPending}
+                  onClick={redirectToCheckout}
                   data-testid="button-upgrade-pro"
                 >
-                  {checkoutMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Crown className="w-4 h-4 ms-2" />
-                      שדרג לפרו
-                    </>
-                  )}
+                  <Crown className="w-4 h-4 ms-2" />
+                  שדרג לפרו
                 </Button>
               )}
             </CardContent>
