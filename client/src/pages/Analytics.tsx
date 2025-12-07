@@ -318,7 +318,24 @@ export default function Analytics() {
                           outerRadius={70}
                           paddingAngle={2}
                           dataKey="value"
-                          label={({ name, value }) => `${name}: ${value}`}
+                          label={({ cx, cy, midAngle, innerRadius, outerRadius, name, value }) => {
+                            const RADIAN = Math.PI / 180;
+                            const radius = innerRadius + (outerRadius - innerRadius) * 1.4;
+                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                            return (
+                              <text
+                                x={x}
+                                y={y}
+                                fill="hsl(var(--foreground))"
+                                textAnchor={x > cx ? 'start' : 'end'}
+                                dominantBaseline="central"
+                                className="text-xs"
+                              >
+                                {`${name}: ${value}`}
+                              </text>
+                            );
+                          }}
                           labelLine={false}
                         >
                           {gradeDistributionData.map((_, index) => (
