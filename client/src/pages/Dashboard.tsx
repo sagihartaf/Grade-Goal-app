@@ -61,7 +61,7 @@ export default function Dashboard() {
     }));
   }, [semesters, localScores]);
 
-  const handleExportPdf = useCallback(() => {
+  const handleExportPdf = useCallback(async () => {
     if (semesters.length === 0) {
       toast({
         title: "אין נתונים לייצוא",
@@ -70,9 +70,13 @@ export default function Dashboard() {
       });
       return;
     }
-    generateGradeReport(semestersWithLocalScores, user);
     toast({
-      title: "הדוח יורד",
+      title: "מכין את הדוח...",
+      description: "הדוח יורד בקרוב",
+    });
+    await generateGradeReport(semestersWithLocalScores, user);
+    toast({
+      title: "הדוח הורד",
       description: "קובץ PDF נוצר בהצלחה",
     });
   }, [semesters.length, semestersWithLocalScores, user, toast]);
@@ -311,15 +315,17 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background pb-32">
       <div className="fixed top-4 start-4 z-50 flex gap-2">
         <ThemeToggle />
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={handleExportPdf}
-          data-testid="button-export-pdf"
-          title="ייצוא דוח ציונים"
-        >
-          <FileDown className="w-5 h-5" />
-        </Button>
+        {isPro && (
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={handleExportPdf}
+            data-testid="button-export-pdf"
+            title="ייצוא דוח ציונים"
+          >
+            <FileDown className="w-5 h-5" />
+          </Button>
+        )}
       </div>
 
       <GpaHeader
