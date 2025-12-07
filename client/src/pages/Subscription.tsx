@@ -34,7 +34,7 @@ export default function Subscription() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background pb-20" dir="rtl">
+      <div className="min-h-screen bg-background pb-32" dir="rtl">
         <div className="fixed top-4 start-4 z-50">
           <ThemeToggle />
         </div>
@@ -51,7 +51,7 @@ export default function Subscription() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20" dir="rtl">
+    <div className="min-h-screen bg-background pb-32" dir="rtl">
       <div className="fixed top-4 start-4 z-50">
         <ThemeToggle />
       </div>

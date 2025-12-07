@@ -11,6 +11,7 @@ import { CreateCourseDialog } from "@/components/CreateCourseDialog";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PaywallModal } from "@/components/PaywallModal";
+import { AdPlaceholder } from "@/components/AdPlaceholder";
 import { useProStatus, canCreateSemester } from "@/hooks/useProStatus";
 import { 
   calculateDegreeGpa, 
@@ -282,7 +283,7 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background pb-20">
+      <div className="min-h-screen bg-background pb-32">
         <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-4">
           <div className="max-w-2xl mx-auto">
             <div className="flex flex-col items-center gap-3">
@@ -307,7 +308,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-32">
       <div className="fixed top-4 start-4 z-50 flex gap-2">
         <ThemeToggle />
         <Button
@@ -331,6 +332,10 @@ export default function Dashboard() {
         onFilterChange={handleFilterChange}
         institutionStats={institutionStats}
       />
+
+      <div className="py-3">
+        <AdPlaceholder variant="large-banner" testId="ad-inline-dashboard" />
+      </div>
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
         {sortedSemesters.length === 0 ? (

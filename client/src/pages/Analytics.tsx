@@ -133,7 +133,7 @@ export default function Analytics() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background pb-20">
+      <div className="min-h-screen bg-background pb-32">
         <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
           <Skeleton className="h-8 w-48" />
           <div className="grid gap-4 md:grid-cols-2">
@@ -150,7 +150,7 @@ export default function Analytics() {
   const hasData = semesters.length > 0 && semesters.some(s => s.courses.length > 0);
 
   return (
-    <div className="min-h-screen bg-background pb-20" dir="rtl">
+    <div className="min-h-screen bg-background pb-32" dir="rtl">
       <div className="fixed top-4 start-4 z-50">
         <ThemeToggle />
       </div>
