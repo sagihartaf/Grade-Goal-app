@@ -79,6 +79,14 @@ Preferred communication style: Simple, everyday language.
 - useProStatus hook for checking subscription status
 - Environment variable: LEMONSQUEEZY_WEBHOOK_SECRET (for webhook signature verification)
 
+**Ad Monetization** (Free Tier):
+- AdPlaceholder.tsx: Reusable component that renders ad placeholders for free users only
+- Pro users see no ads (component returns null when isPro is true)
+- Sticky bottom banner (320×50): Fixed above BottomNavigation on all authenticated pages
+- Inline dashboard banner (320×100): Positioned between GpaHeader and semester list
+- All pages use pb-32 padding to prevent content overlap with stacked nav + ad
+- Hebrew text "שטח פרסום" (Ad Space) as placeholder
+
 ### Data Storage Solutions
 
 **ORM**: Drizzle ORM with PostgreSQL dialect
