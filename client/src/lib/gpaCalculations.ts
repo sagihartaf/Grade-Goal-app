@@ -1,12 +1,17 @@
 import type { CourseWithComponents, SemesterWithCourses, GradeComponent } from "@shared/schema";
 
-// Calculate course grade with Magen algorithm
-export function calculateCourseGrade(components: GradeComponent[]): number | null {
-  if (components.length === 0) return null;
+export interface CourseGradeResult {
+  grade: number | null;
+  magenDropped: boolean;
+}
+
+// Calculate course grade with Magen algorithm and return whether Magen was dropped
+export function calculateCourseGradeWithMagenInfo(components: GradeComponent[]): CourseGradeResult {
+  if (components.length === 0) return { grade: null, magenDropped: false };
   
   // Check if all components have scores
   const hasAllScores = components.every((c) => c.score !== null && c.score !== undefined);
-  if (!hasAllScores) return null;
+  if (!hasAllScores) return { grade: null, magenDropped: false };
 
   // Find magen components and final exam
   const magenComponents = components.filter((c) => c.isMagen);
@@ -23,7 +28,7 @@ export function calculateCourseGrade(components: GradeComponent[]): number | nul
 
   // If no magen components, return regular calculation
   if (magenComponents.length === 0) {
-    return gradeA;
+    return { grade: gradeA, magenDropped: false };
   }
 
   // Calculation B: Exclude magen components, transfer weight to final exam
@@ -31,7 +36,7 @@ export function calculateCourseGrade(components: GradeComponent[]): number | nul
   
   // If no final exam, just use calculation A
   if (!finalExamComponent) {
-    return gradeA;
+    return { grade: gradeA, magenDropped: false };
   }
 
   // Calculate grade without magen, with increased final exam weight
@@ -48,7 +53,13 @@ export function calculateCourseGrade(components: GradeComponent[]): number | nul
     : 0;
 
   // Return the MAX of both calculations (Magen algorithm)
-  return Math.max(gradeA, gradeB);
+  const magenDropped = gradeB > gradeA;
+  return { grade: Math.max(gradeA, gradeB), magenDropped };
+}
+
+// Calculate course grade with Magen algorithm (legacy wrapper for backwards compatibility)
+export function calculateCourseGrade(components: GradeComponent[]): number | null {
+  return calculateCourseGradeWithMagenInfo(components).grade;
 }
 
 // Calculate semester GPA

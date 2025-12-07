@@ -1,13 +1,14 @@
 import { useMemo, useCallback, useState, useEffect } from "react";
-import { ChevronDown, Trash2, Target, Pencil } from "lucide-react";
+import { ChevronDown, Trash2, Target, Pencil, ShieldOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GradeSlider } from "./GradeSlider";
-import { calculateCourseGrade, formatGpa } from "@/lib/gpaCalculations";
+import { calculateCourseGradeWithMagenInfo, formatGpa } from "@/lib/gpaCalculations";
 import type { CourseWithComponents, GradeComponent } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
@@ -37,8 +38,8 @@ export function CourseRow({
     setLocalTargetGrade(course.targetGrade ?? 80);
   }, [course.targetGrade]);
   
-  const courseGrade = useMemo(
-    () => calculateCourseGrade(course.gradeComponents),
+  const { grade: courseGrade, magenDropped } = useMemo(
+    () => calculateCourseGradeWithMagenInfo(course.gradeComponents),
     [course.gradeComponents]
   );
   
@@ -111,15 +112,35 @@ export function CourseRow({
 
           <div className="flex items-center gap-2">
             <div className="flex flex-col items-center">
-              <span 
-                className={cn(
-                  "font-bold text-lg tabular-nums min-w-10 text-center",
-                  getGradeColor(courseGrade)
+              <div className="flex items-center gap-1">
+                <span 
+                  className={cn(
+                    "font-bold text-lg tabular-nums min-w-10 text-center",
+                    getGradeColor(courseGrade)
+                  )}
+                  data-testid={`text-course-grade-${course.id}`}
+                >
+                  {formatGpa(courseGrade)}
+                </span>
+                {magenDropped && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className="flex items-center cursor-help"
+                        data-testid={`indicator-magen-dropped-${course.id}`}
+                      >
+                        <ShieldOff className="w-4 h-4 text-amber-500" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-center">
+                      <p className="font-medium text-amber-600 dark:text-amber-400">מגן בוטל</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        ציון המגן היה נמוך מהמבחן, ולכן בוטל כדי למקסם את הממוצע שלך.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
-                data-testid={`text-course-grade-${course.id}`}
-              >
-                {formatGpa(courseGrade)}
-              </span>
+              </div>
               {course.targetGrade !== null && (
                 <span className="text-[10px] text-muted-foreground">
                   יעד: {course.targetGrade}
