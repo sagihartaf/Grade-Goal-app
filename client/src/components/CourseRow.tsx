@@ -125,12 +125,15 @@ export function CourseRow({
                 {magenDropped && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div 
+                      <span 
                         className="flex items-center cursor-help"
+                        tabIndex={0}
+                        role="img"
+                        aria-label="מגן בוטל - ציון המגן היה נמוך מהמבחן, ולכן בוטל כדי למקסם את הממוצע שלך"
                         data-testid={`indicator-magen-dropped-${course.id}`}
                       >
                         <ShieldOff className="w-4 h-4 text-amber-500" />
-                      </div>
+                      </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-center">
                       <p className="font-medium text-amber-600 dark:text-amber-400">מגן בוטל</p>
