@@ -146,6 +146,19 @@ export default function Dashboard() {
     },
   });
 
+  const updateTargetGradeMutation = useMutation({
+    mutationFn: async ({ courseId, targetGrade }: { courseId: string; targetGrade: number | null }) => {
+      await apiRequest("PATCH", `/api/courses/${courseId}/target`, { targetGrade });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/semesters"] });
+      toast({ title: "ציון היעד עודכן" });
+    },
+    onError: () => {
+      toast({ title: "שגיאה בעדכון ציון היעד", variant: "destructive" });
+    },
+  });
+
   const handleComponentScoreChange = useCallback((componentId: string, score: number) => {
     setLocalScores((prev) => ({ ...prev, [componentId]: score }));
     
@@ -160,6 +173,10 @@ export default function Dashboard() {
     setActiveSemesterId(semesterId);
     setIsCreateCourseOpen(true);
   };
+
+  const handleTargetGradeChange = useCallback((courseId: string, targetGrade: number | null) => {
+    updateTargetGradeMutation.mutate({ courseId, targetGrade });
+  }, [updateTargetGradeMutation]);
 
   const handleFilterChange = (filter: FilterScope) => {
     setCurrentFilter(filter);
@@ -240,6 +257,7 @@ export default function Dashboard() {
                 key={semester.id}
                 semester={semester}
                 onComponentScoreChange={handleComponentScoreChange}
+                onTargetGradeChange={handleTargetGradeChange}
                 onAddCourse={() => handleAddCourse(semester.id)}
                 onDeleteSemester={(id) => deleteSemesterMutation.mutate(id)}
                 onDeleteCourse={(id) => deleteCourseMutation.mutate(id)}

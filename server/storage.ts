@@ -33,6 +33,7 @@ export interface IStorage {
   // Course operations
   getCourse(id: string): Promise<Course | undefined>;
   createCourse(semesterId: string, data: InsertCourse, components: InsertGradeComponent[]): Promise<Course>;
+  updateCourseTargetGrade(id: string, targetGrade: number | null): Promise<Course | undefined>;
   deleteCourse(id: string): Promise<void>;
   
   // Grade component operations
@@ -169,6 +170,15 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
+    return course;
+  }
+
+  async updateCourseTargetGrade(id: string, targetGrade: number | null): Promise<Course | undefined> {
+    const [course] = await db
+      .update(courses)
+      .set({ targetGrade })
+      .where(eq(courses.id, id))
+      .returning();
     return course;
   }
 

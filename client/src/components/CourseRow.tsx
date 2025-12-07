@@ -1,8 +1,11 @@
-import { useMemo, useCallback } from "react";
-import { ChevronDown, Trash2 } from "lucide-react";
+import { useMemo, useCallback, useState, useEffect } from "react";
+import { ChevronDown, Trash2, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
 import { GradeSlider } from "./GradeSlider";
 import { calculateCourseGrade, formatGpa } from "@/lib/gpaCalculations";
 import type { CourseWithComponents, GradeComponent } from "@shared/schema";
@@ -13,6 +16,7 @@ interface CourseRowProps {
   isExpanded: boolean;
   onToggle: () => void;
   onComponentScoreChange: (componentId: string, score: number) => void;
+  onTargetGradeChange?: (courseId: string, targetGrade: number | null) => void;
   onDeleteCourse?: (courseId: string) => void;
 }
 
@@ -21,12 +25,25 @@ export function CourseRow({
   isExpanded,
   onToggle,
   onComponentScoreChange,
+  onTargetGradeChange,
   onDeleteCourse,
 }: CourseRowProps) {
+  const [localTargetGrade, setLocalTargetGrade] = useState<number>(course.targetGrade ?? 80);
+  const [isTargetPopoverOpen, setIsTargetPopoverOpen] = useState(false);
+  
+  useEffect(() => {
+    setLocalTargetGrade(course.targetGrade ?? 80);
+  }, [course.targetGrade]);
+  
   const courseGrade = useMemo(
     () => calculateCourseGrade(course.gradeComponents),
     [course.gradeComponents]
   );
+  
+  const progressToTarget = useMemo(() => {
+    if (course.targetGrade === null || courseGrade === null) return null;
+    return Math.min(100, (courseGrade / course.targetGrade) * 100);
+  }, [course.targetGrade, courseGrade]);
 
   const getGradeColor = (grade: number | null) => {
     if (grade === null) return "text-muted-foreground";
@@ -40,6 +57,21 @@ export function CourseRow({
     e.stopPropagation();
     onDeleteCourse?.(course.id);
   }, [course.id, onDeleteCourse]);
+  
+  const handleTargetClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+  }, []);
+  
+  const handleTargetSave = useCallback(() => {
+    onTargetGradeChange?.(course.id, localTargetGrade);
+    setIsTargetPopoverOpen(false);
+  }, [course.id, localTargetGrade, onTargetGradeChange]);
+  
+  const handleClearTarget = useCallback(() => {
+    setLocalTargetGrade(80);
+    onTargetGradeChange?.(course.id, null);
+    setIsTargetPopoverOpen(false);
+  }, [course.id, onTargetGradeChange]);
 
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggle}>
@@ -71,15 +103,82 @@ export function CourseRow({
           </div>
 
           <div className="flex items-center gap-2">
-            <span 
-              className={cn(
-                "font-bold text-lg tabular-nums min-w-10 text-center",
-                getGradeColor(courseGrade)
+            <div className="flex flex-col items-center">
+              <span 
+                className={cn(
+                  "font-bold text-lg tabular-nums min-w-10 text-center",
+                  getGradeColor(courseGrade)
+                )}
+                data-testid={`text-course-grade-${course.id}`}
+              >
+                {formatGpa(courseGrade)}
+              </span>
+              {course.targetGrade !== null && (
+                <span className="text-[10px] text-muted-foreground">
+                  יעד: {course.targetGrade}
+                </span>
               )}
-              data-testid={`text-course-grade-${course.id}`}
-            >
-              {formatGpa(courseGrade)}
-            </span>
+            </div>
+            
+            <Popover open={isTargetPopoverOpen} onOpenChange={setIsTargetPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleTargetClick}
+                  className={cn(
+                    "transition-opacity",
+                    course.targetGrade !== null ? "text-primary" : "text-muted-foreground"
+                  )}
+                  data-testid={`button-target-${course.id}`}
+                >
+                  <Target className="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent 
+                className="w-72" 
+                align="end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">ציון יעד</span>
+                      <span className="text-lg font-bold tabular-nums">{localTargetGrade}</span>
+                    </div>
+                    <Slider
+                      value={[localTargetGrade]}
+                      onValueChange={([value]) => setLocalTargetGrade(value)}
+                      min={0}
+                      max={100}
+                      step={1}
+                      className="w-full"
+                      data-testid={`slider-target-${course.id}`}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      onClick={handleTargetSave}
+                      className="flex-1"
+                      data-testid={`button-save-target-${course.id}`}
+                    >
+                      שמור יעד
+                    </Button>
+                    {course.targetGrade !== null && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={handleClearTarget}
+                        data-testid={`button-clear-target-${course.id}`}
+                      >
+                        נקה
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
             
             {onDeleteCourse && (
               <Button
@@ -95,6 +194,24 @@ export function CourseRow({
           </div>
         </div>
       </CollapsibleTrigger>
+      
+      {course.targetGrade !== null && progressToTarget !== null && (
+        <div className="px-4 pb-2">
+          <div className="flex items-center gap-2">
+            <Progress 
+              value={progressToTarget} 
+              className="h-1.5 flex-1"
+              data-testid={`progress-target-${course.id}`}
+            />
+            <span className={cn(
+              "text-xs font-medium tabular-nums",
+              progressToTarget >= 100 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+            )}>
+              {Math.round(progressToTarget)}%
+            </span>
+          </div>
+        </div>
+      )}
 
       <CollapsibleContent className="overflow-hidden">
         <div className="ps-8 pe-4 pb-3 space-y-1">

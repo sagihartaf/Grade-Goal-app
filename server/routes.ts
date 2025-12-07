@@ -135,6 +135,37 @@ export async function registerRoutes(
     }
   });
 
+  // Update course target grade
+  app.patch("/api/courses/:id/target", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const courseId = req.params.id;
+      
+      const schema = z.object({
+        targetGrade: z.number().min(0).max(100).nullable(),
+      });
+
+      const data = schema.parse(req.body);
+      
+      // Verify ownership through semester
+      const course = await storage.getCourse(courseId);
+      if (!course) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+
+      const semester = await storage.getSemester(course.semesterId);
+      if (!semester || semester.userId !== userId) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+
+      const updatedCourse = await storage.updateCourseTargetGrade(courseId, data.targetGrade);
+      res.json(updatedCourse);
+    } catch (error) {
+      console.error("Error updating course target grade:", error);
+      res.status(500).json({ message: "Failed to update course target grade" });
+    }
+  });
+
   // Delete a course
   app.delete("/api/courses/:id", isAuthenticated, async (req: any, res) => {
     try {
