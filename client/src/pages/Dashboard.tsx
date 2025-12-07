@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -16,8 +16,9 @@ import {
   calculateSemesterGpa,
   getSemesterDisplayName 
 } from "@/lib/gpaCalculations";
+import { generateGradeReport } from "@/lib/pdfExport";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { SemesterWithCourses } from "@shared/schema";
+import type { SemesterWithCourses, User } from "@shared/schema";
 
 type FilterScope = "degree" | "year" | "semester";
 
@@ -37,6 +38,10 @@ export default function Dashboard() {
     queryKey: ["/api/semesters"],
   });
 
+  const { data: user } = useQuery<User>({
+    queryKey: ["/api/profile"],
+  });
+
   const semestersWithLocalScores = useMemo(() => {
     return semesters.map((semester) => ({
       ...semester,
@@ -49,6 +54,22 @@ export default function Dashboard() {
       })),
     }));
   }, [semesters, localScores]);
+
+  const handleExportPdf = useCallback(() => {
+    if (semesters.length === 0) {
+      toast({
+        title: "אין נתונים לייצוא",
+        description: "הוסף סמסטרים וקורסים לפני ייצוא הדוח",
+        variant: "destructive",
+      });
+      return;
+    }
+    generateGradeReport(semestersWithLocalScores, user);
+    toast({
+      title: "הדוח יורד",
+      description: "קובץ PDF נוצר בהצלחה",
+    });
+  }, [semesters.length, semestersWithLocalScores, user, toast]);
 
   const sortedSemesters = useMemo(() => {
     return [...semestersWithLocalScores].sort((a, b) => {
@@ -238,8 +259,17 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <div className="fixed top-4 start-4 z-50">
+      <div className="fixed top-4 start-4 z-50 flex gap-2">
         <ThemeToggle />
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={handleExportPdf}
+          data-testid="button-export-pdf"
+          title="ייצוא דוח ציונים"
+        >
+          <FileDown className="w-5 h-5" />
+        </Button>
       </div>
 
       <GpaHeader
