@@ -1,0 +1,283 @@
+import { useState, useMemo, useCallback } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Plus, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { GpaHeader } from "@/components/GpaHeader";
+import { SemesterCard } from "@/components/SemesterCard";
+import { CreateSemesterDialog } from "@/components/CreateSemesterDialog";
+import { CreateCourseDialog } from "@/components/CreateCourseDialog";
+import { BottomNavigation } from "@/components/BottomNavigation";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { 
+  calculateDegreeGpa, 
+  calculateYearGpa, 
+  calculateSemesterGpa,
+  getSemesterDisplayName 
+} from "@/lib/gpaCalculations";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { SemesterWithCourses } from "@shared/schema";
+
+type FilterScope = "degree" | "year" | "semester";
+
+export default function Dashboard() {
+  const { toast } = useToast();
+  const [currentFilter, setCurrentFilter] = useState<FilterScope>("degree");
+  const [selectedYear, setSelectedYear] = useState<number>(1);
+  const [selectedSemesterId, setSelectedSemesterId] = useState<string | null>(null);
+  
+  const [isCreateSemesterOpen, setIsCreateSemesterOpen] = useState(false);
+  const [isCreateCourseOpen, setIsCreateCourseOpen] = useState(false);
+  const [activeSemesterId, setActiveSemesterId] = useState<string | null>(null);
+
+  const [localScores, setLocalScores] = useState<Record<string, number>>({});
+
+  const { data: semesters = [], isLoading } = useQuery<SemesterWithCourses[]>({
+    queryKey: ["/api/semesters"],
+  });
+
+  const semestersWithLocalScores = useMemo(() => {
+    return semesters.map((semester) => ({
+      ...semester,
+      courses: semester.courses.map((course) => ({
+        ...course,
+        gradeComponents: course.gradeComponents.map((component) => ({
+          ...component,
+          score: localScores[component.id] ?? component.score,
+        })),
+      })),
+    }));
+  }, [semesters, localScores]);
+
+  const sortedSemesters = useMemo(() => {
+    return [...semestersWithLocalScores].sort((a, b) => {
+      if (a.academicYear !== b.academicYear) {
+        return a.academicYear - b.academicYear;
+      }
+      const termOrder = { A: 1, B: 2, Summer: 3 };
+      return termOrder[a.term] - termOrder[b.term];
+    });
+  }, [semestersWithLocalScores]);
+
+  const degreeGpa = useMemo(
+    () => calculateDegreeGpa(semestersWithLocalScores),
+    [semestersWithLocalScores]
+  );
+
+  const yearGpa = useMemo(
+    () => calculateYearGpa(semestersWithLocalScores, selectedYear),
+    [semestersWithLocalScores, selectedYear]
+  );
+
+  const semesterGpa = useMemo(() => {
+    const semester = semestersWithLocalScores.find((s) => s.id === selectedSemesterId);
+    return semester ? calculateSemesterGpa(semester.courses) : null;
+  }, [semestersWithLocalScores, selectedSemesterId]);
+
+  const createSemesterMutation = useMutation({
+    mutationFn: async (data: { academicYear: number; term: "A" | "B" | "Summer" }) => {
+      const response = await apiRequest("POST", "/api/semesters", data);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/semesters"] });
+      setIsCreateSemesterOpen(false);
+      toast({ title: "הסמסטר נוצר בהצלחה" });
+    },
+    onError: () => {
+      toast({ title: "שגיאה ביצירת הסמסטר", variant: "destructive" });
+    },
+  });
+
+  const createCourseMutation = useMutation({
+    mutationFn: async (data: {
+      semesterId: string;
+      name: string;
+      credits: number;
+      components: Array<{ name: string; weight: number; isMagen: boolean }>;
+    }) => {
+      const response = await apiRequest("POST", "/api/courses", data);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/semesters"] });
+      setIsCreateCourseOpen(false);
+      setActiveSemesterId(null);
+      toast({ title: "הקורס נוצר בהצלחה" });
+    },
+    onError: () => {
+      toast({ title: "שגיאה ביצירת הקורס", variant: "destructive" });
+    },
+  });
+
+  const updateScoreMutation = useMutation({
+    mutationFn: async ({ componentId, score }: { componentId: string; score: number }) => {
+      await apiRequest("PATCH", `/api/grade-components/${componentId}`, { score });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/semesters"] });
+    },
+  });
+
+  const deleteSemesterMutation = useMutation({
+    mutationFn: async (semesterId: string) => {
+      await apiRequest("DELETE", `/api/semesters/${semesterId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/semesters"] });
+      toast({ title: "הסמסטר נמחק" });
+    },
+    onError: () => {
+      toast({ title: "שגיאה במחיקת הסמסטר", variant: "destructive" });
+    },
+  });
+
+  const deleteCourseMutation = useMutation({
+    mutationFn: async (courseId: string) => {
+      await apiRequest("DELETE", `/api/courses/${courseId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/semesters"] });
+      toast({ title: "הקורס נמחק" });
+    },
+    onError: () => {
+      toast({ title: "שגיאה במחיקת הקורס", variant: "destructive" });
+    },
+  });
+
+  const handleComponentScoreChange = useCallback((componentId: string, score: number) => {
+    setLocalScores((prev) => ({ ...prev, [componentId]: score }));
+    
+    const timeoutId = setTimeout(() => {
+      updateScoreMutation.mutate({ componentId, score });
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [updateScoreMutation]);
+
+  const handleAddCourse = (semesterId: string) => {
+    setActiveSemesterId(semesterId);
+    setIsCreateCourseOpen(true);
+  };
+
+  const handleFilterChange = (filter: FilterScope) => {
+    setCurrentFilter(filter);
+    if (filter === "year" && sortedSemesters.length > 0) {
+      setSelectedYear(sortedSemesters[0].academicYear);
+    }
+    if (filter === "semester" && sortedSemesters.length > 0) {
+      setSelectedSemesterId(sortedSemesters[0].id);
+    }
+  };
+
+  const activeSemester = sortedSemesters.find((s) => s.id === activeSemesterId);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-4">
+          <div className="max-w-2xl mx-auto">
+            <div className="flex flex-col items-center gap-3">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-14 w-24" />
+              <div className="flex gap-2">
+                <Skeleton className="h-6 w-16" />
+                <Skeleton className="h-6 w-16" />
+                <Skeleton className="h-6 w-16" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-lg" />
+          ))}
+        </div>
+        <BottomNavigation />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background pb-20">
+      <div className="fixed top-4 left-4 z-50">
+        <ThemeToggle />
+      </div>
+
+      <GpaHeader
+        degreeGpa={degreeGpa}
+        yearGpa={yearGpa}
+        semesterGpa={semesterGpa}
+        selectedYear={selectedYear}
+        selectedSemester={activeSemester?.name}
+        currentFilter={currentFilter}
+        onFilterChange={handleFilterChange}
+      />
+
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        {sortedSemesters.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+              <Plus className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">אין סמסטרים עדיין</h2>
+            <p className="text-muted-foreground mb-6">
+              התחל להוסיף את הסמסטרים והקורסים שלך
+            </p>
+            <Button
+              onClick={() => setIsCreateSemesterOpen(true)}
+              data-testid="button-add-first-semester"
+            >
+              <Plus className="w-4 h-4 ms-2" />
+              הוסף סמסטר ראשון
+            </Button>
+          </div>
+        ) : (
+          <>
+            {sortedSemesters.map((semester) => (
+              <SemesterCard
+                key={semester.id}
+                semester={semester}
+                onComponentScoreChange={handleComponentScoreChange}
+                onAddCourse={() => handleAddCourse(semester.id)}
+                onDeleteSemester={(id) => deleteSemesterMutation.mutate(id)}
+                onDeleteCourse={(id) => deleteCourseMutation.mutate(id)}
+              />
+            ))}
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setIsCreateSemesterOpen(true)}
+              data-testid="button-add-semester"
+            >
+              <Plus className="w-4 h-4 ms-2" />
+              הוסף סמסטר
+            </Button>
+          </>
+        )}
+      </main>
+
+      <BottomNavigation />
+
+      <CreateSemesterDialog
+        open={isCreateSemesterOpen}
+        onOpenChange={setIsCreateSemesterOpen}
+        onSubmit={(data) => createSemesterMutation.mutate(data)}
+        isPending={createSemesterMutation.isPending}
+      />
+
+      <CreateCourseDialog
+        open={isCreateCourseOpen}
+        onOpenChange={setIsCreateCourseOpen}
+        onSubmit={(data) =>
+          activeSemesterId &&
+          createCourseMutation.mutate({ ...data, semesterId: activeSemesterId })
+        }
+        isPending={createCourseMutation.isPending}
+        semesterName={activeSemester?.name}
+      />
+    </div>
+  );
+}
