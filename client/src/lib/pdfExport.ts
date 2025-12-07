@@ -9,26 +9,82 @@ const semesterTermNames: Record<string, string> = {
   'Summer': 'קיץ',
 };
 
-async function loadHebrewFont(doc: jsPDF): Promise<boolean> {
-  try {
-    const response = await fetch('https://fonts.gstatic.com/s/rubik/v28/iJWZBXyIfDnIV5PNhY1KTN7Z-Yh-B4iFV0U1.ttf');
-    if (!response.ok) return false;
-    
-    const arrayBuffer = await response.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    let binary = '';
-    for (let i = 0; i < uint8Array.length; i++) {
-      binary += String.fromCharCode(uint8Array[i]);
-    }
-    const base64 = btoa(binary);
-    
-    doc.addFileToVFS('Rubik-Regular.ttf', base64);
-    doc.addFont('Rubik-Regular.ttf', 'Rubik', 'normal');
-    return true;
-  } catch (error) {
-    console.error('Failed to load Hebrew font:', error);
-    return false;
+function prepareHebrewForPdf(text: string): string {
+  const hebrewCharPattern = /[\u0590-\u05FF]/;
+  if (!hebrewCharPattern.test(text)) {
+    return text;
   }
+  
+  const ltrPattern = /([a-zA-Z0-9]+(?:[\s\.\,\-'][a-zA-Z0-9]+)*)/g;
+  
+  const ltrSegments: { start: number; end: number; text: string }[] = [];
+  let match;
+  while ((match = ltrPattern.exec(text)) !== null) {
+    ltrSegments.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      text: match[0]
+    });
+  }
+  
+  const reversed = text.split('').reverse().join('');
+  const reversedLen = reversed.length;
+  
+  let result = reversed;
+  
+  for (const seg of ltrSegments) {
+    const reversedStart = reversedLen - seg.end;
+    const reversedEnd = reversedLen - seg.start;
+    
+    const before = result.substring(0, reversedStart);
+    const after = result.substring(reversedEnd);
+    
+    result = before + seg.text + after;
+  }
+  
+  return result;
+}
+
+async function loadHebrewFont(doc: jsPDF): Promise<boolean> {
+  const fontUrls = [
+    'https://fonts.gstatic.com/s/rubik/v28/iJWKBXyIfDnIV7nBrXw.ttf',
+    'https://fonts.gstatic.com/s/rubik/v21/iJWZBXyIfDnIV5PNhY1KTN7Z-Yh-B4iFV0U1.ttf',
+  ];
+  
+  for (const url of fontUrls) {
+    try {
+      const response = await fetch(url, { 
+        mode: 'cors',
+        cache: 'force-cache' 
+      });
+      
+      if (!response.ok) continue;
+      
+      const arrayBuffer = await response.arrayBuffer();
+      if (arrayBuffer.byteLength < 1000) continue;
+      
+      const uint8Array = new Uint8Array(arrayBuffer);
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+        binary += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      const base64 = btoa(binary);
+      
+      doc.addFileToVFS('Rubik-Regular.ttf', base64);
+      doc.addFont('Rubik-Regular.ttf', 'Rubik', 'normal');
+      doc.setFont('Rubik');
+      
+      return true;
+    } catch (error) {
+      console.warn('Font load attempt failed:', url, error);
+      continue;
+    }
+  }
+  
+  console.error('All Hebrew font loading attempts failed');
+  return false;
 }
 
 export async function generateGradeReport(
@@ -50,19 +106,19 @@ export async function generateGradeReport(
 
   let yPosition = 20;
 
+  doc.setFontSize(24);
   if (hebrewFontLoaded) {
     doc.setFont('Rubik');
   } else {
     doc.setFont('helvetica', 'bold');
   }
-  
-  doc.setFontSize(24);
   doc.text('GradeGoal', pageWidth / 2, yPosition, { align: 'center' });
 
   yPosition += 10;
   doc.setFontSize(14);
   if (hebrewFontLoaded) {
-    doc.text('דוח ציונים', pageWidth / 2, yPosition, { align: 'center' });
+    doc.setFont('Rubik');
+    doc.text(prepareHebrewForPdf('דוח ציונים'), pageWidth / 2, yPosition, { align: 'center' });
   } else {
     doc.setFont('helvetica', 'normal');
     doc.text('Grade Report', pageWidth / 2, yPosition, { align: 'center' });
@@ -80,8 +136,11 @@ export async function generateGradeReport(
     
     const userName = [user.firstName, user.lastName].filter(Boolean).join(' ');
     if (userName) {
-      const studentLabel = hebrewFontLoaded ? 'סטודנט:' : 'Student:';
-      doc.text(`${studentLabel} ${userName}`, pageWidth - marginRight, yPosition, { align: 'right' });
+      if (hebrewFontLoaded) {
+        doc.text(prepareHebrewForPdf(`סטודנט: ${userName}`), pageWidth - marginRight, yPosition, { align: 'right' });
+      } else {
+        doc.text(`Student: ${userName}`, pageWidth - marginRight, yPosition, { align: 'right' });
+      }
       yPosition += 6;
     }
     
@@ -90,13 +149,19 @@ export async function generateGradeReport(
       month: 'long',
       day: 'numeric'
     });
-    const dateLabel = hebrewFontLoaded ? 'תאריך:' : 'Date:';
-    doc.text(`${dateLabel} ${today}`, pageWidth - marginRight, yPosition, { align: 'right' });
+    if (hebrewFontLoaded) {
+      doc.text(prepareHebrewForPdf(`תאריך: ${today}`), pageWidth - marginRight, yPosition, { align: 'right' });
+    } else {
+      doc.text(`Date: ${new Date().toLocaleDateString('en-US')}`, pageWidth - marginRight, yPosition, { align: 'right' });
+    }
     
     if (user.academicInstitution) {
       yPosition += 6;
-      const instLabel = hebrewFontLoaded ? 'מוסד אקדמי:' : 'Institution:';
-      doc.text(`${instLabel} ${user.academicInstitution}`, pageWidth - marginRight, yPosition, { align: 'right' });
+      if (hebrewFontLoaded) {
+        doc.text(prepareHebrewForPdf(`מוסד אקדמי: ${user.academicInstitution}`), pageWidth - marginRight, yPosition, { align: 'right' });
+      } else {
+        doc.text(`Institution: ${user.academicInstitution}`, pageWidth - marginRight, yPosition, { align: 'right' });
+      }
     }
   }
 
@@ -110,7 +175,7 @@ export async function generateGradeReport(
   doc.setFontSize(16);
   if (hebrewFontLoaded) {
     doc.setFont('Rubik');
-    doc.text(`ממוצע תואר: ${overallGpa !== null ? overallGpa.toFixed(2) : 'N/A'}`, pageWidth - marginRight - 5, yPosition + 3, { align: 'right' });
+    doc.text(prepareHebrewForPdf(`ממוצע תואר: ${overallGpa !== null ? overallGpa.toFixed(2) : 'N/A'}`), pageWidth - marginRight - 5, yPosition + 3, { align: 'right' });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text(`Degree GPA: ${overallGpa !== null ? overallGpa.toFixed(2) : 'N/A'}`, marginLeft + 5, yPosition + 3);
@@ -124,8 +189,8 @@ export async function generateGradeReport(
   doc.setFontSize(10);
   if (hebrewFontLoaded) {
     doc.setFont('Rubik');
-    doc.text(`סה"כ נק"ז: ${totalCredits.toFixed(1)}`, marginLeft + 5, yPosition + 3);
-    doc.text(`קורסים: ${totalCourses}`, marginLeft + 5, yPosition + 8);
+    doc.text(prepareHebrewForPdf(`סה"כ נק"ז: ${totalCredits.toFixed(1)}`), marginLeft + 5, yPosition + 3);
+    doc.text(prepareHebrewForPdf(`קורסים: ${totalCourses}`), marginLeft + 5, yPosition + 8);
   } else {
     doc.setFont('helvetica', 'normal');
     doc.text(`Total Credits: ${totalCredits.toFixed(1)}`, pageWidth - marginRight - 45, yPosition + 3);
@@ -158,22 +223,19 @@ export async function generateGradeReport(
     doc.setFontSize(11);
     if (hebrewFontLoaded) {
       doc.setFont('Rubik');
-      doc.text(`שנה ${semester.academicYear} - ${termName}`, pageWidth - marginRight - 3, yPosition + 2, { align: 'right' });
+      doc.text(prepareHebrewForPdf(`שנה ${semester.academicYear} - ${termName}`), pageWidth - marginRight - 3, yPosition + 2, { align: 'right' });
     } else {
       doc.setFont('helvetica', 'bold');
       doc.text(`Year ${semester.academicYear} - ${termName}`, marginLeft + 3, yPosition + 2);
     }
     
-    const gpaLabel = hebrewFontLoaded ? 'ממוצע:' : 'GPA:';
-    const creditsLabel = hebrewFontLoaded ? 'נק"ז:' : 'Credits:';
-    const gpaText = `${gpaLabel} ${semesterGpa !== null ? semesterGpa.toFixed(2) : 'N/A'} | ${creditsLabel} ${semesterCredits.toFixed(1)}`;
     doc.setFontSize(9);
-    
     if (hebrewFontLoaded) {
+      const gpaText = prepareHebrewForPdf(`ממוצע: ${semesterGpa !== null ? semesterGpa.toFixed(2) : 'N/A'} | נק"ז: ${semesterCredits.toFixed(1)}`);
       doc.text(gpaText, marginLeft + 3, yPosition + 2);
     } else {
       doc.setFont('helvetica', 'normal');
-      doc.text(gpaText, pageWidth - marginRight - 3, yPosition + 2, { align: 'right' });
+      doc.text(`GPA: ${semesterGpa !== null ? semesterGpa.toFixed(2) : 'N/A'} | Credits: ${semesterCredits.toFixed(1)}`, pageWidth - marginRight - 3, yPosition + 2, { align: 'right' });
     }
     
     doc.setTextColor(0, 0, 0);
@@ -184,19 +246,37 @@ export async function generateGradeReport(
       const componentsCompleted = course.gradeComponents.filter(c => c.score !== null && c.score !== undefined).length;
       const totalComponents = course.gradeComponents.length;
       
-      return [
-        course.name,
-        course.credits.toFixed(1),
-        grade !== null ? grade.toFixed(1) : '-',
-        course.targetGrade !== null && course.targetGrade !== undefined 
-          ? course.targetGrade.toFixed(1) 
-          : '-',
-        `${componentsCompleted}/${totalComponents}`,
-      ];
+      if (hebrewFontLoaded) {
+        return [
+          `${componentsCompleted}/${totalComponents}`,
+          course.targetGrade !== null && course.targetGrade !== undefined 
+            ? course.targetGrade.toFixed(1) 
+            : '-',
+          grade !== null ? grade.toFixed(1) : '-',
+          course.credits.toFixed(1),
+          prepareHebrewForPdf(course.name),
+        ];
+      } else {
+        return [
+          course.name,
+          course.credits.toFixed(1),
+          grade !== null ? grade.toFixed(1) : '-',
+          course.targetGrade !== null && course.targetGrade !== undefined 
+            ? course.targetGrade.toFixed(1) 
+            : '-',
+          `${componentsCompleted}/${totalComponents}`,
+        ];
+      }
     });
 
     const headers = hebrewFontLoaded 
-      ? [['שם הקורס', 'נק"ז', 'ציון', 'יעד', 'התקדמות']]
+      ? [[
+          prepareHebrewForPdf('התקדמות'),
+          prepareHebrewForPdf('יעד'),
+          prepareHebrewForPdf('ציון'),
+          prepareHebrewForPdf('נק"ז'),
+          prepareHebrewForPdf('שם הקורס'),
+        ]]
       : [['Course Name', 'Credits', 'Grade', 'Target', 'Progress']];
 
     if (tableData.length > 0) {
@@ -224,7 +304,13 @@ export async function generateGradeReport(
         alternateRowStyles: {
           fillColor: [248, 248, 248],
         },
-        columnStyles: {
+        columnStyles: hebrewFontLoaded ? {
+          0: { cellWidth: contentWidth * 0.15, halign: 'center' },
+          1: { cellWidth: contentWidth * 0.12, halign: 'center' },
+          2: { cellWidth: contentWidth * 0.12, halign: 'center' },
+          3: { cellWidth: contentWidth * 0.12, halign: 'center' },
+          4: { cellWidth: contentWidth * 0.49, halign: 'right' },
+        } : {
           0: { cellWidth: contentWidth * 0.38 },
           1: { cellWidth: contentWidth * 0.12, halign: 'center' },
           2: { cellWidth: contentWidth * 0.15, halign: 'center' },
@@ -232,7 +318,8 @@ export async function generateGradeReport(
           4: { cellWidth: contentWidth * 0.20, halign: 'center' },
         },
         didParseCell: (data) => {
-          if (data.section === 'body' && data.column.index === 2 && data.cell.text[0] !== '-') {
+          const gradeColIndex = hebrewFontLoaded ? 2 : 2;
+          if (data.section === 'body' && data.column.index === gradeColIndex && data.cell.text[0] !== '-') {
             const grade = parseFloat(data.cell.text[0]);
             if (grade >= 85) {
               data.cell.styles.textColor = [34, 139, 34];
@@ -250,9 +337,11 @@ export async function generateGradeReport(
       yPosition += 8;
       doc.setFontSize(9);
       doc.setTextColor(128, 128, 128);
-      const noCoursesText = hebrewFontLoaded ? 'אין קורסים בסמסטר זה' : 'No courses in this semester';
-      doc.text(noCoursesText, hebrewFontLoaded ? pageWidth - marginRight - 5 : marginLeft + 5, yPosition, 
-        hebrewFontLoaded ? { align: 'right' } : undefined);
+      if (hebrewFontLoaded) {
+        doc.text(prepareHebrewForPdf('אין קורסים בסמסטר זה'), pageWidth - marginRight - 5, yPosition, { align: 'right' });
+      } else {
+        doc.text('No courses in this semester', marginLeft + 5, yPosition);
+      }
       doc.setTextColor(0, 0, 0);
       yPosition += 10;
     }
@@ -273,12 +362,12 @@ export async function generateGradeReport(
   
   if (hebrewFontLoaded) {
     doc.setFont('Rubik');
-    doc.text('סיכום', pageWidth - marginRight, yPosition, { align: 'right' });
+    doc.text(prepareHebrewForPdf('סיכום'), pageWidth - marginRight, yPosition, { align: 'right' });
     
     yPosition += 6;
     doc.setFontSize(9);
     const summaryText = `סמסטרים: ${semesters.length} | קורסים: ${totalCourses} | נק"ז: ${totalCredits.toFixed(1)} | ממוצע תואר: ${overallGpa !== null ? overallGpa.toFixed(2) : 'N/A'}`;
-    doc.text(summaryText, pageWidth - marginRight, yPosition, { align: 'right' });
+    doc.text(prepareHebrewForPdf(summaryText), pageWidth - marginRight, yPosition, { align: 'right' });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text('Summary', marginLeft, yPosition);
@@ -298,7 +387,7 @@ export async function generateGradeReport(
     doc.setFont('Rubik');
     const footerDate = new Date().toLocaleDateString('he-IL', { year: 'numeric', month: 'long', day: 'numeric' });
     doc.text(
-      `נוצר על ידי GradeGoal בתאריך ${footerDate}`,
+      prepareHebrewForPdf(`נוצר על ידי GradeGoal בתאריך ${footerDate}`),
       pageWidth / 2,
       doc.internal.pageSize.getHeight() - 10,
       { align: 'center' }
