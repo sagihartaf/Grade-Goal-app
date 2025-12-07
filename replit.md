@@ -63,11 +63,18 @@ Preferred communication style: Simple, everyday language.
 - Percentile ranking within same academic institution
 - PDF grade report export (using jspdf + jspdf-autotable)
 
-**Stripe Integration**:
+**Stripe Integration** (Legacy):
 - stripe-replit-sync for managed webhooks and data synchronization
 - Webhook handlers for checkout.session.completed, subscription updates/deletions
-- Pro tier subscription at 19.90 ILS/month
 - Customer portal for subscription management
+
+**RevenueCat Integration** (Primary):
+- @revenuecat/purchases-js Web SDK for subscription management
+- Entitlement: "GradeGoal Pro" for pro tier access
+- Free tier limited to 2 semesters, Pro tier unlimited
+- PaywallModal component for upgrade prompts
+- useProStatus hook for checking entitlement status
+- Environment variable: VITE_REVENUECAT_PUBLIC_KEY
 
 ### Data Storage Solutions
 
