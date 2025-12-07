@@ -61,7 +61,14 @@ Preferred communication style: Simple, everyday language.
 - Real-time grade simulation without persistence until user commits changes
 - Target grade tracking per course with progress visualization
 - Percentile ranking within same academic institution
-- PDF grade report export (using jspdf + jspdf-autotable)
+- PDF grade report export (using jspdf + jspdf-autotable):
+  - Pro-only feature with download button in Dashboard header
+  - Dynamic Hebrew font loading from Google Fonts (Rubik)
+  - RTL text alignment with Hebrew labels and date formatting
+  - Fallback to English/LTR if font loading fails
+  - Includes student name, institution, degree GPA, per-semester tables
+  - Grade coloring (green for 85+, red for <60)
+  - Progress tracking column showing completed/total components
 
 **Stripe Integration** (Legacy):
 - stripe-replit-sync for managed webhooks and data synchronization
