@@ -218,7 +218,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <div className="fixed top-4 left-4 z-50">
+      <div className="fixed top-4 start-4 z-50">
         <ThemeToggle />
       </div>
 
