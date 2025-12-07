@@ -32,7 +32,7 @@ const componentSchema = z.object({
 
 const formSchema = z.object({
   name: z.string().min(1, "שם הקורס נדרש"),
-  credits: z.number().min(0.5, "יש להזין נקודות זכות").max(20),
+  credits: z.number().min(0.1, "יש להזין נקודות זכות").max(20),
   components: z.array(componentSchema).min(1, "יש להוסיף לפחות מרכיב אחד"),
 }).refine((data) => {
   const totalWeight = data.components.reduce((sum, c) => sum + c.weight, 0);
@@ -130,8 +130,8 @@ export function CreateCourseDialog({
                   <FormControl>
                     <Input
                       type="number"
-                      step="0.5"
-                      min="0.5"
+                      step="any"
+                      min="0.1"
                       max="20"
                       {...field}
                       onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}

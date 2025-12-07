@@ -102,7 +102,7 @@ export async function registerRoutes(
       const schema = z.object({
         semesterId: z.string(),
         name: z.string().min(1),
-        credits: z.number().min(0.5).max(20),
+        credits: z.number().min(0.1).max(20),
         components: z.array(z.object({
           name: z.string().min(1),
           weight: z.number().min(0).max(100),
