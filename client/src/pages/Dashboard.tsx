@@ -19,7 +19,7 @@ import {
   calculateSemesterGpa,
   getSemesterDisplayName 
 } from "@/lib/gpaCalculations";
-import { generateGradeReport } from "@/lib/pdfExport";
+import { openPrintReport } from "@/components/PrintableReport";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { SemesterWithCourses, User, CourseWithComponents } from "@shared/schema";
 
@@ -61,7 +61,7 @@ export default function Dashboard() {
     }));
   }, [semesters, localScores]);
 
-  const handleExportPdf = useCallback(async () => {
+  const handleExportPdf = useCallback(() => {
     if (semesters.length === 0) {
       toast({
         title: "אין נתונים לייצוא",
@@ -72,13 +72,9 @@ export default function Dashboard() {
     }
     toast({
       title: "מכין את הדוח...",
-      description: "הדוח יורד בקרוב",
+      description: "חלון הדפסה נפתח - שמור כ-PDF",
     });
-    await generateGradeReport(semestersWithLocalScores, user);
-    toast({
-      title: "הדוח הורד",
-      description: "קובץ PDF נוצר בהצלחה",
-    });
+    openPrintReport(semestersWithLocalScores, user);
   }, [semesters.length, semestersWithLocalScores, user, toast]);
 
   const sortedSemesters = useMemo(() => {
