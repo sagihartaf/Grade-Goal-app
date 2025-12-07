@@ -106,6 +106,7 @@ export async function registerRoutes(
         components: z.array(z.object({
           name: z.string().min(1),
           weight: z.number().min(0).max(100),
+          score: z.number().min(0).max(100).optional().nullable(),
           isMagen: z.boolean().default(false),
         })).min(1),
       });
@@ -125,6 +126,7 @@ export async function registerRoutes(
           courseId: "", // Will be set in storage
           name: c.name,
           weight: c.weight,
+          score: c.score ?? null,
           isMagen: c.isMagen,
         }))
       );

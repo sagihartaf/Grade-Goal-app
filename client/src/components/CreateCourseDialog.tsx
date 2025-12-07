@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 const componentSchema = z.object({
   name: z.string().min(1, "שם המרכיב נדרש"),
   weight: z.number().min(0).max(100),
+  score: z.number().min(0).max(100).optional().nullable(),
   isMagen: z.boolean().default(false),
 });
 
@@ -49,7 +50,7 @@ interface CreateCourseDialogProps {
   onSubmit: (data: {
     name: string;
     credits: number;
-    components: Array<{ name: string; weight: number; isMagen: boolean }>;
+    components: Array<{ name: string; weight: number; score?: number | null; isMagen: boolean }>;
   }) => void;
   isPending?: boolean;
   semesterName?: string;
@@ -68,8 +69,8 @@ export function CreateCourseDialog({
       name: "",
       credits: 3,
       components: [
-        { name: "מבחן סופי", weight: 70, isMagen: false },
-        { name: "תרגילים", weight: 30, isMagen: false },
+        { name: "מבחן סופי", weight: 70, score: null, isMagen: false },
+        { name: "תרגילים", weight: 30, score: null, isMagen: false },
       ],
     },
   });
@@ -87,7 +88,7 @@ export function CreateCourseDialog({
   };
 
   const addComponent = () => {
-    append({ name: "", weight: 0, isMagen: false });
+    append({ name: "", weight: 0, score: null, isMagen: false });
   };
 
   return (
@@ -163,7 +164,7 @@ export function CreateCourseDialog({
                     key={field.id}
                     className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg"
                   >
-                    <div className="flex-1 grid grid-cols-2 gap-2">
+                    <div className="flex-1 grid grid-cols-3 gap-2">
                       <FormField
                         control={form.control}
                         name={`components.${index}.name`}
@@ -197,13 +198,37 @@ export function CreateCourseDialog({
                                   onChange={(e) =>
                                     field.onChange(parseInt(e.target.value) || 0)
                                   }
-                                  className="pe-8"
+                                  className="ps-7"
                                   data-testid={`input-component-weight-${index}`}
                                 />
-                                <span className="absolute start-2 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                                   %
                                 </span>
                               </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`components.${index}.score`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                placeholder="ציון"
+                                value={field.value ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  field.onChange(val === "" ? null : parseInt(val));
+                                }}
+                                data-testid={`input-component-score-${index}`}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
