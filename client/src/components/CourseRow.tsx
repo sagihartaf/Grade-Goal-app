@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useState, useEffect } from "react";
-import { ChevronDown, Trash2, Target } from "lucide-react";
+import { ChevronDown, Trash2, Target, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -18,6 +18,7 @@ interface CourseRowProps {
   onComponentScoreChange: (componentId: string, score: number) => void;
   onTargetGradeChange?: (courseId: string, targetGrade: number | null) => void;
   onDeleteCourse?: (courseId: string) => void;
+  onEditCourse?: (course: CourseWithComponents) => void;
 }
 
 export function CourseRow({
@@ -27,6 +28,7 @@ export function CourseRow({
   onComponentScoreChange,
   onTargetGradeChange,
   onDeleteCourse,
+  onEditCourse,
 }: CourseRowProps) {
   const [localTargetGrade, setLocalTargetGrade] = useState<number>(course.targetGrade ?? 80);
   const [isTargetPopoverOpen, setIsTargetPopoverOpen] = useState(false);
@@ -57,6 +59,11 @@ export function CourseRow({
     e.stopPropagation();
     onDeleteCourse?.(course.id);
   }, [course.id, onDeleteCourse]);
+
+  const handleEditClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEditCourse?.(course);
+  }, [course, onEditCourse]);
   
   const handleTargetClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -180,12 +187,22 @@ export function CourseRow({
               </PopoverContent>
             </Popover>
             
+            {onEditCourse && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleEditClick}
+                data-testid={`button-edit-course-${course.id}`}
+              >
+                <Pencil className="w-4 h-4 text-muted-foreground" />
+              </Button>
+            )}
+            
             {onDeleteCourse && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleDeleteClick}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
                 data-testid={`button-delete-course-${course.id}`}
               >
                 <Trash2 className="w-4 h-4 text-destructive" />

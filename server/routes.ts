@@ -138,6 +138,55 @@ export async function registerRoutes(
     }
   });
 
+  // Update course (name, credits, components)
+  app.put("/api/courses/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const courseId = req.params.id;
+      
+      const schema = z.object({
+        name: z.string().min(1),
+        credits: z.number().min(0.1).max(20),
+        components: z.array(z.object({
+          name: z.string().min(1),
+          weight: z.number().min(0).max(100),
+          score: z.number().min(0).max(100).optional().nullable(),
+          isMagen: z.boolean().default(false),
+        })).min(1),
+      });
+
+      const data = schema.parse(req.body);
+      
+      // Verify ownership through semester
+      const course = await storage.getCourse(courseId);
+      if (!course) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+
+      const semester = await storage.getSemester(course.semesterId);
+      if (!semester || semester.userId !== userId) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+
+      const updatedCourse = await storage.updateCourse(
+        courseId,
+        { name: data.name, credits: data.credits },
+        data.components.map((c) => ({
+          courseId: courseId,
+          name: c.name,
+          weight: c.weight,
+          score: c.score ?? null,
+          isMagen: c.isMagen,
+        }))
+      );
+      
+      res.json(updatedCourse);
+    } catch (error) {
+      console.error("Error updating course:", error);
+      res.status(500).json({ message: "Failed to update course" });
+    }
+  });
+
   // Update course target grade
   app.patch("/api/courses/:id/target", isAuthenticated, async (req: any, res) => {
     try {

@@ -42,6 +42,7 @@ export interface IStorage {
   // Course operations
   getCourse(id: string): Promise<Course | undefined>;
   createCourse(semesterId: string, data: InsertCourse, components: InsertGradeComponent[]): Promise<Course>;
+  updateCourse(id: string, data: { name: string; credits: number }, components: InsertGradeComponent[]): Promise<Course | undefined>;
   updateCourseTargetGrade(id: string, targetGrade: number | null): Promise<Course | undefined>;
   deleteCourse(id: string): Promise<void>;
   
@@ -263,6 +264,33 @@ export class DatabaseStorage implements IStorage {
       await db.insert(gradeComponents).values({
         ...component,
         courseId: course.id,
+      });
+    }
+
+    return course;
+  }
+
+  async updateCourse(
+    id: string,
+    data: { name: string; credits: number },
+    components: InsertGradeComponent[]
+  ): Promise<Course | undefined> {
+    // Update course info
+    const [course] = await db
+      .update(courses)
+      .set({ name: data.name, credits: data.credits })
+      .where(eq(courses.id, id))
+      .returning();
+    
+    if (!course) return undefined;
+
+    // Delete existing components and create new ones
+    await db.delete(gradeComponents).where(eq(gradeComponents.courseId, id));
+    
+    for (const component of components) {
+      await db.insert(gradeComponents).values({
+        ...component,
+        courseId: id,
       });
     }
 

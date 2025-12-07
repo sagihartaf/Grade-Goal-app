@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CourseRow } from "./CourseRow";
 import { calculateSemesterGpa, formatGpa, getTermName } from "@/lib/gpaCalculations";
-import type { SemesterWithCourses } from "@shared/schema";
+import type { SemesterWithCourses, CourseWithComponents } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
 interface SemesterCardProps {
@@ -16,6 +16,7 @@ interface SemesterCardProps {
   onAddCourse?: () => void;
   onDeleteSemester?: (semesterId: string) => void;
   onDeleteCourse?: (courseId: string) => void;
+  onEditCourse?: (course: CourseWithComponents) => void;
 }
 
 export function SemesterCard({
@@ -25,6 +26,7 @@ export function SemesterCard({
   onAddCourse,
   onDeleteSemester,
   onDeleteCourse,
+  onEditCourse,
 }: SemesterCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedCourses, setExpandedCourses] = useState<Set<string>>(new Set());
@@ -140,6 +142,7 @@ export function SemesterCard({
                     onComponentScoreChange={onComponentScoreChange}
                     onTargetGradeChange={onTargetGradeChange}
                     onDeleteCourse={onDeleteCourse}
+                    onEditCourse={onEditCourse}
                   />
                 ))}
               </div>

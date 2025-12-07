@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
+import type { CourseWithComponents } from "@shared/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -54,6 +55,7 @@ interface CreateCourseDialogProps {
   }) => void;
   isPending?: boolean;
   semesterName?: string;
+  editCourse?: CourseWithComponents | null;
 }
 
 export function CreateCourseDialog({
@@ -62,7 +64,10 @@ export function CreateCourseDialog({
   onSubmit,
   isPending = false,
   semesterName,
+  editCourse,
 }: CreateCourseDialogProps) {
+  const isEditMode = !!editCourse;
+  
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -74,6 +79,30 @@ export function CreateCourseDialog({
       ],
     },
   });
+  
+  useEffect(() => {
+    if (editCourse && open) {
+      form.reset({
+        name: editCourse.name,
+        credits: editCourse.credits,
+        components: editCourse.gradeComponents.map(c => ({
+          name: c.name,
+          weight: c.weight,
+          score: c.score,
+          isMagen: c.isMagen || false,
+        })),
+      });
+    } else if (!editCourse && open) {
+      form.reset({
+        name: "",
+        credits: 3,
+        components: [
+          { name: "מבחן סופי", weight: 70, score: null, isMagen: false },
+          { name: "תרגילים", weight: 30, score: null, isMagen: false },
+        ],
+      });
+    }
+  }, [editCourse, open, form]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -95,9 +124,11 @@ export function CreateCourseDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dialog-create-course">
         <DialogHeader>
-          <DialogTitle>קורס חדש</DialogTitle>
+          <DialogTitle>{isEditMode ? "עריכת קורס" : "קורס חדש"}</DialogTitle>
           <DialogDescription>
-            {semesterName && `הוסף קורס ל${semesterName}`}
+            {isEditMode 
+              ? `עריכת ${editCourse?.name}` 
+              : semesterName && `הוסף קורס ל${semesterName}`}
           </DialogDescription>
         </DialogHeader>
 
@@ -309,7 +340,7 @@ export function CreateCourseDialog({
                 {isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  "צור קורס"
+                  isEditMode ? "שמור שינויים" : "צור קורס"
                 )}
               </Button>
             </div>

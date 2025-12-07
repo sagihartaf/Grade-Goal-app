@@ -20,7 +20,7 @@ import {
 } from "@/lib/gpaCalculations";
 import { generateGradeReport } from "@/lib/pdfExport";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { SemesterWithCourses, User } from "@shared/schema";
+import type { SemesterWithCourses, User, CourseWithComponents } from "@shared/schema";
 
 type FilterScope = "degree" | "year" | "semester";
 
@@ -35,6 +35,7 @@ export default function Dashboard() {
   const [isCreateCourseOpen, setIsCreateCourseOpen] = useState(false);
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [activeSemesterId, setActiveSemesterId] = useState<string | null>(null);
+  const [editingCourse, setEditingCourse] = useState<CourseWithComponents | null>(null);
 
   const [localScores, setLocalScores] = useState<Record<string, number>>({});
 
@@ -191,6 +192,24 @@ export default function Dashboard() {
     },
   });
 
+  const updateCourseMutation = useMutation({
+    mutationFn: async ({ courseId, data }: { 
+      courseId: string; 
+      data: { name: string; credits: number; components: Array<{ name: string; weight: number; score?: number | null; isMagen: boolean }> } 
+    }) => {
+      await apiRequest("PUT", `/api/courses/${courseId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/semesters"] });
+      setIsCreateCourseOpen(false);
+      setEditingCourse(null);
+      toast({ title: "הקורס עודכן בהצלחה" });
+    },
+    onError: () => {
+      toast({ title: "שגיאה בעדכון הקורס", variant: "destructive" });
+    },
+  });
+
   const updateTargetGradeMutation = useMutation({
     mutationFn: async ({ courseId, targetGrade }: { courseId: string; targetGrade: number | null }) => {
       await apiRequest("PATCH", `/api/courses/${courseId}/target`, { targetGrade });
@@ -216,8 +235,26 @@ export default function Dashboard() {
 
   const handleAddCourse = (semesterId: string) => {
     setActiveSemesterId(semesterId);
+    setEditingCourse(null);
     setIsCreateCourseOpen(true);
   };
+
+  const handleEditCourse = useCallback((course: CourseWithComponents) => {
+    setEditingCourse(course);
+    setIsCreateCourseOpen(true);
+  }, []);
+
+  const handleDeleteCourse = useCallback((courseId: string) => {
+    if (window.confirm("האם אתה בטוח שברצונך למחוק את הקורס?")) {
+      deleteCourseMutation.mutate(courseId);
+    }
+  }, [deleteCourseMutation]);
+
+  const handleDeleteSemester = useCallback((semesterId: string) => {
+    if (window.confirm("האם אתה בטוח שברצונך למחוק את הסמסטר? כל הקורסים בסמסטר יימחקו.")) {
+      deleteSemesterMutation.mutate(semesterId);
+    }
+  }, [deleteSemesterMutation]);
 
   const handleAddSemesterClick = useCallback(() => {
     if (canCreateSemester(semesters.length, isPro)) {
@@ -322,8 +359,9 @@ export default function Dashboard() {
                 onComponentScoreChange={handleComponentScoreChange}
                 onTargetGradeChange={handleTargetGradeChange}
                 onAddCourse={() => handleAddCourse(semester.id)}
-                onDeleteSemester={(id) => deleteSemesterMutation.mutate(id)}
-                onDeleteCourse={(id) => deleteCourseMutation.mutate(id)}
+                onDeleteSemester={handleDeleteSemester}
+                onDeleteCourse={handleDeleteCourse}
+                onEditCourse={handleEditCourse}
               />
             ))}
 
@@ -351,13 +389,20 @@ export default function Dashboard() {
 
       <CreateCourseDialog
         open={isCreateCourseOpen}
-        onOpenChange={setIsCreateCourseOpen}
-        onSubmit={(data) =>
-          activeSemesterId &&
-          createCourseMutation.mutate({ ...data, semesterId: activeSemesterId })
-        }
-        isPending={createCourseMutation.isPending}
+        onOpenChange={(open) => {
+          setIsCreateCourseOpen(open);
+          if (!open) setEditingCourse(null);
+        }}
+        onSubmit={(data) => {
+          if (editingCourse) {
+            updateCourseMutation.mutate({ courseId: editingCourse.id, data });
+          } else if (activeSemesterId) {
+            createCourseMutation.mutate({ ...data, semesterId: activeSemesterId });
+          }
+        }}
+        isPending={createCourseMutation.isPending || updateCourseMutation.isPending}
         semesterName={activeSemester?.name}
+        editCourse={editingCourse}
       />
 
       <PaywallModal
