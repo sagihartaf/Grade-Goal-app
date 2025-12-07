@@ -10,6 +10,8 @@ import { CreateSemesterDialog } from "@/components/CreateSemesterDialog";
 import { CreateCourseDialog } from "@/components/CreateCourseDialog";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { PaywallModal } from "@/components/PaywallModal";
+import { useProStatus, canCreateSemester } from "@/hooks/useProStatus";
 import { 
   calculateDegreeGpa, 
   calculateYearGpa, 
@@ -24,12 +26,14 @@ type FilterScope = "degree" | "year" | "semester";
 
 export default function Dashboard() {
   const { toast } = useToast();
+  const { isPro } = useProStatus();
   const [currentFilter, setCurrentFilter] = useState<FilterScope>("degree");
   const [selectedYear, setSelectedYear] = useState<number>(1);
   const [selectedSemesterId, setSelectedSemesterId] = useState<string | null>(null);
   
   const [isCreateSemesterOpen, setIsCreateSemesterOpen] = useState(false);
   const [isCreateCourseOpen, setIsCreateCourseOpen] = useState(false);
+  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [activeSemesterId, setActiveSemesterId] = useState<string | null>(null);
 
   const [localScores, setLocalScores] = useState<Record<string, number>>({});
@@ -215,6 +219,14 @@ export default function Dashboard() {
     setIsCreateCourseOpen(true);
   };
 
+  const handleAddSemesterClick = useCallback(() => {
+    if (canCreateSemester(semesters.length, isPro)) {
+      setIsCreateSemesterOpen(true);
+    } else {
+      setIsPaywallOpen(true);
+    }
+  }, [semesters.length, isPro]);
+
   const handleTargetGradeChange = useCallback((courseId: string, targetGrade: number | null) => {
     updateTargetGradeMutation.mutate({ courseId, targetGrade });
   }, [updateTargetGradeMutation]);
@@ -294,7 +306,7 @@ export default function Dashboard() {
               התחל להוסיף את הסמסטרים והקורסים שלך
             </p>
             <Button
-              onClick={() => setIsCreateSemesterOpen(true)}
+              onClick={handleAddSemesterClick}
               data-testid="button-add-first-semester"
             >
               <Plus className="w-4 h-4 ms-2" />
@@ -318,7 +330,7 @@ export default function Dashboard() {
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => setIsCreateSemesterOpen(true)}
+              onClick={handleAddSemesterClick}
               data-testid="button-add-semester"
             >
               <Plus className="w-4 h-4 ms-2" />
@@ -346,6 +358,12 @@ export default function Dashboard() {
         }
         isPending={createCourseMutation.isPending}
         semesterName={activeSemester?.name}
+      />
+
+      <PaywallModal
+        open={isPaywallOpen}
+        onOpenChange={setIsPaywallOpen}
+        trigger="semester_limit"
       />
     </div>
   );

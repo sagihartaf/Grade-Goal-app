@@ -3,9 +3,9 @@ import { Purchases, type CustomerInfo, type Package, type Offerings } from '@rev
 const REVENUECAT_API_KEY = import.meta.env.VITE_REVENUECAT_PUBLIC_KEY;
 const ENTITLEMENT_ID = 'GradeGoal Pro';
 
-let purchasesInstance: Purchases | null = null;
+let purchasesInstance: typeof Purchases.prototype | null = null;
 
-export function configureRevenueCat(userId: string): Purchases {
+export function configureRevenueCat(userId: string): typeof Purchases.prototype {
   if (purchasesInstance) {
     return purchasesInstance;
   }
@@ -14,19 +14,23 @@ export function configureRevenueCat(userId: string): Purchases {
     throw new Error('RevenueCat API key not configured');
   }
 
-  purchasesInstance = Purchases.configure(REVENUECAT_API_KEY, userId);
-  return purchasesInstance;
-}
+  purchasesInstance = Purchases.configure({
+    apiKey: REVENUECAT_API_KEY,
+    appUserId: userId,
+  });
 
-export function getRevenueCatInstance(): Purchases {
-  if (!purchasesInstance) {
-    throw new Error('RevenueCat not configured. Call configureRevenueCat first.');
-  }
   return purchasesInstance;
 }
 
 export function isRevenueCatConfigured(): boolean {
   return purchasesInstance !== null;
+}
+
+export function getRevenueCatInstance(): typeof Purchases.prototype {
+  if (!purchasesInstance) {
+    throw new Error('RevenueCat not configured. Call configureRevenueCat first.');
+  }
+  return purchasesInstance;
 }
 
 export async function getOfferings(): Promise<Offerings | null> {
@@ -66,7 +70,7 @@ export async function purchasePackage(rcPackage: Package, email?: string): Promi
     const purchases = getRevenueCatInstance();
     const { customerInfo } = await purchases.purchase({
       rcPackage,
-      customerEmail: email,
+      email,
     });
     return customerInfo;
   } catch (error: any) {

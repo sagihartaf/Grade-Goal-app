@@ -6,6 +6,7 @@ import {
   isRevenueCatConfigured,
   getOfferings,
   purchasePackage,
+  ENTITLEMENT_ID,
   type Package,
   type Offerings 
 } from '@/services/revenuecat';
@@ -39,7 +40,7 @@ export function useProStatus(): ProStatus {
       setError(null);
 
       if (!isRevenueCatConfigured()) {
-        configureRevenueCat(user.id);
+        await configureRevenueCat(user.id);
       }
 
       const [hasPro, offeringsData] = await Promise.all([
@@ -67,17 +68,17 @@ export function useProStatus(): ProStatus {
   }, [authLoading, user?.id, checkStatus]);
 
   const purchase = useCallback(async (rcPackage: Package): Promise<boolean> => {
-    if (!user?.email) {
-      setError('User email is required for purchase');
-      return false;
-    }
-
     try {
-      const customerInfo = await purchasePackage(rcPackage, user.email);
+      const customerInfo = await purchasePackage(rcPackage, user?.email || undefined);
       if (customerInfo) {
-        await checkStatus();
-        return true;
+        const hasPro = ENTITLEMENT_ID in customerInfo.entitlements.active;
+        setIsPro(hasPro);
+        if (hasPro) {
+          await checkStatus();
+          return true;
+        }
       }
+      await checkStatus();
       return false;
     } catch (err) {
       console.error('Purchase failed:', err);
