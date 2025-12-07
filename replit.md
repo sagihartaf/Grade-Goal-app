@@ -45,6 +45,9 @@ Preferred communication style: Simple, everyday language.
 - `/api/courses` - CRUD operations for courses
 - `/api/grade-components` - Update individual grade component scores
 - `/api/profile` - User profile management
+- `/api/stats/institution` - Percentile ranking within institution
+- `/api/subscription` - User subscription status
+- `/api/stripe/*` - Stripe integration (checkout, portal, webhooks)
 
 **Authentication Pattern**: 
 - Replit OIDC (OpenID Connect) integration using Passport.js
@@ -56,6 +59,15 @@ Preferred communication style: Simple, everyday language.
 - GPA calculation engine with Israeli academic "Magen" algorithm
 - Weighted average calculations across courses and semesters
 - Real-time grade simulation without persistence until user commits changes
+- Target grade tracking per course with progress visualization
+- Percentile ranking within same academic institution
+- PDF grade report export (using jspdf + jspdf-autotable)
+
+**Stripe Integration**:
+- stripe-replit-sync for managed webhooks and data synchronization
+- Webhook handlers for checkout.session.completed, subscription updates/deletions
+- Pro tier subscription at 19.90 ILS/month
+- Customer portal for subscription management
 
 ### Data Storage Solutions
 
@@ -65,6 +77,7 @@ Preferred communication style: Simple, everyday language.
 
 1. **users** - User profiles linked to Replit Auth IDs
    - Stores academic institution, target GPA, subscription tier
+   - Stripe customer ID and subscription ID for billing
    - Primary key: UUID (auto-generated)
 
 2. **semesters** - Academic semesters organized by year and term
