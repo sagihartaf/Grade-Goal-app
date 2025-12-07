@@ -245,5 +245,111 @@ export async function registerRoutes(
     }
   });
 
+  // Stripe routes
+  // Get Stripe publishable key
+  app.get("/api/stripe/publishable-key", async (req, res) => {
+    try {
+      const { getStripePublishableKey } = await import("./stripeClient");
+      const publishableKey = await getStripePublishableKey();
+      res.json({ publishableKey });
+    } catch (error) {
+      console.error("Error fetching Stripe key:", error);
+      res.status(500).json({ message: "Failed to fetch Stripe key" });
+    }
+  });
+
+  // Create checkout session for Pro subscription
+  app.post("/api/stripe/create-checkout-session", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { getUncachableStripeClient } = await import("./stripeClient");
+      const stripe = await getUncachableStripeClient();
+
+      // Create or get customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email || undefined,
+          metadata: { userId },
+        });
+        await storage.updateUserStripeInfo(userId, { stripeCustomerId: customer.id });
+        customerId = customer.id;
+      }
+
+      // Create checkout session - use price ID from Stripe or create one dynamically
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ["card"],
+        line_items: [{
+          price_data: {
+            currency: "ils",
+            product_data: {
+              name: "GradeGoal Pro",
+              description: "מנוי פרו - ללא פרסומות, תכונות מתקדמות",
+            },
+            unit_amount: 1990,
+            recurring: { interval: "month" },
+          },
+          quantity: 1,
+        }],
+        mode: "subscription",
+        success_url: `${req.protocol}://${req.get("host")}/?subscription=success`,
+        cancel_url: `${req.protocol}://${req.get("host")}/?subscription=cancelled`,
+      });
+
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ message: "Failed to create checkout session" });
+    }
+  });
+
+  // Create customer portal session
+  app.post("/api/stripe/create-portal-session", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.stripeCustomerId) {
+        return res.status(400).json({ message: "No subscription found" });
+      }
+
+      const { getUncachableStripeClient } = await import("./stripeClient");
+      const stripe = await getUncachableStripeClient();
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: `${req.protocol}://${req.get("host")}/`,
+      });
+
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Error creating portal session:", error);
+      res.status(500).json({ message: "Failed to create portal session" });
+    }
+  });
+
+  // Get user subscription status
+  app.get("/api/subscription", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      res.json({
+        subscriptionTier: user?.subscriptionTier || "free",
+        stripeSubscriptionId: user?.stripeSubscriptionId,
+      });
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+      res.status(500).json({ message: "Failed to fetch subscription" });
+    }
+  });
+
   return httpServer;
 }

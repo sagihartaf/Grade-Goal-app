@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import { LayoutDashboard, User, BarChart3 } from "lucide-react";
+import { LayoutDashboard, User, BarChart3, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -11,6 +11,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { path: "/", label: "לוח בקרה", icon: LayoutDashboard },
   { path: "/analytics", label: "אנליטיקה", icon: BarChart3 },
+  { path: "/subscription", label: "פרו", icon: Crown },
   { path: "/profile", label: "פרופיל", icon: User },
 ];
 

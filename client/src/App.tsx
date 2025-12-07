@@ -9,6 +9,7 @@ import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import Analytics from "@/pages/Analytics";
 import Profile from "@/pages/Profile";
+import Subscription from "@/pages/Subscription";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -23,6 +24,7 @@ function Router() {
           <Route path="/" component={Dashboard} />
           <Route path="/analytics" component={Analytics} />
           <Route path="/profile" component={Profile} />
+          <Route path="/subscription" component={Subscription} />
         </>
       )}
       <Route component={NotFound} />

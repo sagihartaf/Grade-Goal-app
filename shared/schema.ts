@@ -38,6 +38,8 @@ export const users = pgTable("users", {
   academicInstitution: text("academic_institution"),
   targetGpa: real("target_gpa"),
   subscriptionTier: varchar("subscription_tier").default("free"),
+  stripeCustomerId: varchar("stripe_customer_id"),
+  stripeSubscriptionId: varchar("stripe_subscription_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
