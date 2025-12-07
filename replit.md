@@ -68,13 +68,16 @@ Preferred communication style: Simple, everyday language.
 - Webhook handlers for checkout.session.completed, subscription updates/deletions
 - Customer portal for subscription management
 
-**RevenueCat Integration** (Primary):
-- @revenuecat/purchases-js Web SDK for subscription management
-- Entitlement: "GradeGoal Pro" for pro tier access
+**Lemon Squeezy Integration** (Primary):
+- Redirect-based checkout flow (no SDK required)
+- Checkout URL: https://gradegoal.lemonsqueezy.com/buy/1a922e3f-709c-47a3-9395-7b93865cad80
+- User ID passed via checkout[custom][user_id] parameter
+- Webhook endpoint: POST /api/webhooks/lemon-squeezy
+- Listens for order_created event to upgrade users to Pro tier
 - Free tier limited to 2 semesters, Pro tier unlimited
 - PaywallModal component for upgrade prompts
-- useProStatus hook for checking entitlement status
-- Environment variable: VITE_REVENUECAT_PUBLIC_KEY
+- useProStatus hook for checking subscription status
+- Environment variable: LEMONSQUEEZY_WEBHOOK_SECRET (for webhook signature verification)
 
 ### Data Storage Solutions
 

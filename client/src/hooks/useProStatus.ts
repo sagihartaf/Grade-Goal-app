@@ -1,99 +1,33 @@
-import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from './useAuth';
-import { 
-  configureRevenueCat, 
-  checkProEntitlement, 
-  isRevenueCatConfigured,
-  getOfferings,
-  purchasePackage,
-  ENTITLEMENT_ID,
-  type Package,
-  type Offerings 
-} from '@/services/revenuecat';
 
 interface ProStatus {
   isPro: boolean;
   isLoading: boolean;
-  error: string | null;
-  offerings: Offerings | null;
-  refetch: () => Promise<void>;
-  purchase: (rcPackage: Package) => Promise<boolean>;
+  redirectToCheckout: () => void;
 }
 
 const FREE_TIER_SEMESTER_LIMIT = 2;
+const LEMON_SQUEEZY_CHECKOUT_URL = 'https://gradegoal.lemonsqueezy.com/buy/1a922e3f-709c-47a3-9395-7b93865cad80';
 
 export function useProStatus(): ProStatus {
   const { user, isLoading: authLoading } = useAuth();
-  const [isPro, setIsPro] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [offerings, setOfferings] = useState<Offerings | null>(null);
+  
+  const isPro = user?.subscriptionTier === 'pro';
 
-  const checkStatus = useCallback(async () => {
+  const redirectToCheckout = () => {
     if (!user?.id) {
-      setIsLoading(false);
+      console.error('User must be logged in to purchase');
       return;
     }
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      if (!isRevenueCatConfigured()) {
-        await configureRevenueCat(user.id);
-      }
-
-      const [hasPro, offeringsData] = await Promise.all([
-        checkProEntitlement(),
-        getOfferings(),
-      ]);
-
-      setIsPro(hasPro);
-      setOfferings(offeringsData);
-    } catch (err) {
-      console.error('Failed to check pro status:', err);
-      setError(err instanceof Error ? err.message : 'Failed to check subscription status');
-      setIsPro(user?.subscriptionTier === 'pro');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user?.id, user?.subscriptionTier]);
-
-  useEffect(() => {
-    if (!authLoading && user?.id) {
-      checkStatus();
-    } else if (!authLoading) {
-      setIsLoading(false);
-    }
-  }, [authLoading, user?.id, checkStatus]);
-
-  const purchase = useCallback(async (rcPackage: Package): Promise<boolean> => {
-    try {
-      const customerInfo = await purchasePackage(rcPackage, user?.email || undefined);
-      if (customerInfo) {
-        const hasPro = ENTITLEMENT_ID in customerInfo.entitlements.active;
-        setIsPro(hasPro);
-        if (hasPro) {
-          await checkStatus();
-          return true;
-        }
-      }
-      await checkStatus();
-      return false;
-    } catch (err) {
-      console.error('Purchase failed:', err);
-      setError(err instanceof Error ? err.message : 'Purchase failed');
-      return false;
-    }
-  }, [user?.email, checkStatus]);
+    
+    const checkoutUrl = `${LEMON_SQUEEZY_CHECKOUT_URL}?checkout[custom][user_id]=${encodeURIComponent(user.id)}`;
+    window.location.href = checkoutUrl;
+  };
 
   return {
     isPro,
-    isLoading: authLoading || isLoading,
-    error,
-    offerings,
-    refetch: checkStatus,
-    purchase,
+    isLoading: authLoading,
+    redirectToCheckout,
   };
 }
 

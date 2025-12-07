@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
+import { handleLemonSqueezyWebhook } from "./lemonSqueezyWebhook";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -350,6 +351,9 @@ export async function registerRoutes(
       res.status(500).json({ message: "Failed to fetch subscription" });
     }
   });
+
+  // Lemon Squeezy webhook
+  app.post("/api/webhooks/lemon-squeezy", handleLemonSqueezyWebhook);
 
   return httpServer;
 }

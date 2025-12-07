@@ -1,57 +1,12 @@
-import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
-import { Crown, Check, Loader2, X } from 'lucide-react';
+import { Crown, Check, Loader2 } from 'lucide-react';
 import { useProStatus, FREE_TIER_SEMESTER_LIMIT } from '@/hooks/useProStatus';
-import type { Package } from '@/services/revenuecat';
 
 interface PaywallModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   trigger?: 'semester_limit' | 'feature' | 'manual';
-}
-
-interface PackageDisplayInfo {
-  title: string;
-  subtitle: string;
-  popular?: boolean;
-  savings?: string;
-}
-
-function getPackageDisplayInfo(rcPackage: Package): PackageDisplayInfo {
-  const identifier = rcPackage.identifier.toLowerCase();
-  
-  if (identifier.includes('lifetime')) {
-    return {
-      title: 'לכל החיים',
-      subtitle: 'תשלום חד פעמי',
-      savings: 'החיסכון הגדול ביותר',
-    };
-  }
-  
-  if (identifier.includes('annual') || identifier.includes('yearly')) {
-    return {
-      title: 'שנתי',
-      subtitle: 'לחודש',
-      popular: true,
-      savings: 'חסכו 33%',
-    };
-  }
-  
-  return {
-    title: 'חודשי',
-    subtitle: 'לחודש',
-  };
-}
-
-function formatPrice(rcPackage: Package): string {
-  const product = rcPackage.webBillingProduct;
-  if (!product) return '';
-  
-  const price = product.currentPrice;
-  return price.formattedPrice;
 }
 
 const PRO_FEATURES = [
@@ -65,29 +20,10 @@ const PRO_FEATURES = [
 ];
 
 export function PaywallModal({ open, onOpenChange, trigger = 'manual' }: PaywallModalProps) {
-  const { offerings, purchase, isLoading } = useProStatus();
-  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
-  const [isPurchasing, setIsPurchasing] = useState(false);
-  const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const { redirectToCheckout, isLoading } = useProStatus();
 
-  const packages = offerings?.current?.availablePackages || [];
-
-  const handlePurchase = async (rcPackage: Package) => {
-    setSelectedPackage(rcPackage);
-    setIsPurchasing(true);
-    setPurchaseError(null);
-
-    try {
-      const success = await purchase(rcPackage);
-      if (success) {
-        onOpenChange(false);
-      }
-    } catch (error) {
-      setPurchaseError('הרכישה נכשלה. אנא נסו שוב.');
-    } finally {
-      setIsPurchasing(false);
-      setSelectedPackage(null);
-    }
+  const handlePurchase = () => {
+    redirectToCheckout();
   };
 
   const getTriggerMessage = () => {
@@ -136,71 +72,16 @@ export function PaywallModal({ open, onOpenChange, trigger = 'manual' }: Paywall
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
-          ) : packages.length > 0 ? (
-            <div className="space-y-3 mt-6">
-              {packages.map((rcPackage) => {
-                const displayInfo = getPackageDisplayInfo(rcPackage);
-                const isSelected = selectedPackage?.identifier === rcPackage.identifier;
-                
-                return (
-                  <Card
-                    key={rcPackage.identifier}
-                    className={`relative p-4 cursor-pointer transition-all hover-elevate ${
-                      displayInfo.popular ? 'ring-2 ring-primary' : ''
-                    }`}
-                    onClick={() => !isPurchasing && handlePurchase(rcPackage)}
-                    data-testid={`card-package-${rcPackage.identifier}`}
-                  >
-                    {displayInfo.popular && (
-                      <Badge 
-                        className="absolute -top-2 start-4 bg-primary text-primary-foreground"
-                      >
-                        הכי פופולרי
-                      </Badge>
-                    )}
-                    
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-lg">{displayInfo.title}</span>
-                          {displayInfo.savings && (
-                            <Badge variant="secondary" className="text-xs">
-                              {displayInfo.savings}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {displayInfo.subtitle}
-                        </p>
-                      </div>
-                      
-                      <div className="text-end">
-                        <span className="text-xl font-bold">
-                          {formatPrice(rcPackage)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {isSelected && isPurchasing && (
-                      <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-lg">
-                        <Loader2 className="w-6 h-6 animate-spin" />
-                      </div>
-                    )}
-                  </Card>
-                );
-              })}
-            </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>לא נמצאו חבילות זמינות כרגע</p>
-            </div>
-          )}
-
-          {purchaseError && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-              <X className="w-4 h-4 flex-shrink-0" />
-              <span>{purchaseError}</span>
-            </div>
+            <Button 
+              className="w-full mt-6" 
+              size="lg"
+              onClick={handlePurchase}
+              data-testid="button-buy-pro"
+            >
+              <Crown className="w-4 h-4 me-2" />
+              שדרגו ל-Pro
+            </Button>
           )}
 
           <p className="text-xs text-muted-foreground text-center mt-4">
