@@ -75,6 +75,26 @@ export default function Dashboard() {
     return semester ? calculateSemesterGpa(semester.courses) : null;
   }, [semestersWithLocalScores, selectedSemesterId]);
 
+  interface InstitutionStats {
+    totalUsers: number;
+    userRank: number;
+    percentile: number;
+    averageGpa: number;
+  }
+
+  const { data: institutionStats } = useQuery<InstitutionStats | null>({
+    queryKey: ["/api/stats/institution", degreeGpa],
+    queryFn: async () => {
+      if (degreeGpa === null) return null;
+      const response = await fetch(`/api/stats/institution?gpa=${degreeGpa}`, {
+        credentials: "include",
+      });
+      if (!response.ok) return null;
+      return response.json();
+    },
+    enabled: degreeGpa !== null,
+  });
+
   const createSemesterMutation = useMutation({
     mutationFn: async (data: { academicYear: number; term: "A" | "B" | "Summer" }) => {
       const response = await apiRequest("POST", "/api/semesters", data);
@@ -230,6 +250,7 @@ export default function Dashboard() {
         selectedSemester={activeSemester?.name}
         currentFilter={currentFilter}
         onFilterChange={handleFilterChange}
+        institutionStats={institutionStats}
       />
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">

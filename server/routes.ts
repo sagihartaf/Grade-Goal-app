@@ -191,6 +191,24 @@ export async function registerRoutes(
     }
   });
 
+  // Get institution statistics for percentile ranking
+  app.get("/api/stats/institution", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userGpa = parseFloat(req.query.gpa as string);
+      
+      if (isNaN(userGpa)) {
+        return res.status(400).json({ message: "Invalid GPA parameter" });
+      }
+
+      const stats = await storage.getInstitutionStats(userId, userGpa);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching institution stats:", error);
+      res.status(500).json({ message: "Failed to fetch institution stats" });
+    }
+  });
+
   // Update grade component score
   app.patch("/api/grade-components/:id", isAuthenticated, async (req: any, res) => {
     try {

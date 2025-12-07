@@ -18,11 +18,19 @@ import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { getSemesterDisplayName } from "../client/src/lib/gpaCalculations";
 
+export interface InstitutionStats {
+  totalUsers: number;
+  userRank: number;
+  percentile: number;
+  averageGpa: number;
+}
+
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserProfile(id: string, data: Partial<User>): Promise<User | undefined>;
+  getInstitutionStats(userId: string, userGpa: number): Promise<InstitutionStats | null>;
   
   // Semester operations
   getSemestersByUserId(userId: string): Promise<SemesterWithCourses[]>;
@@ -80,6 +88,84 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user;
+  }
+
+  async getInstitutionStats(userId: string, userGpa: number): Promise<InstitutionStats | null> {
+    const currentUser = await this.getUser(userId);
+    if (!currentUser?.academicInstitution) {
+      return null;
+    }
+
+    const allUsers = await db.select().from(users);
+    const institutionUsers = allUsers.filter(
+      (u) => u.academicInstitution === currentUser.academicInstitution
+    );
+
+    if (institutionUsers.length < 2) {
+      return null;
+    }
+
+    const userGpas: { id: string; gpa: number }[] = [];
+
+    for (const user of institutionUsers) {
+      const userSemesters = await this.getSemestersByUserId(user.id);
+      
+      let totalWeightedGpa = 0;
+      let totalCredits = 0;
+
+      for (const semester of userSemesters) {
+        for (const course of semester.courses) {
+          const components = course.gradeComponents;
+          if (components.length === 0) continue;
+
+          const allHaveScores = components.every((c) => c.score !== null);
+          if (!allHaveScores) continue;
+
+          let regularSum = 0;
+          let regularWeight = 0;
+          let nonMagenSum = 0;
+          let nonMagenWeight = 0;
+
+          for (const comp of components) {
+            regularSum += (comp.score || 0) * comp.weight;
+            regularWeight += comp.weight;
+            if (!comp.isMagen) {
+              nonMagenSum += (comp.score || 0) * comp.weight;
+              nonMagenWeight += comp.weight;
+            }
+          }
+
+          const regularGrade = regularWeight > 0 ? regularSum / regularWeight : 0;
+          const nonMagenGrade = nonMagenWeight > 0 ? nonMagenSum / nonMagenWeight : regularGrade;
+          const courseGrade = Math.max(regularGrade, nonMagenGrade);
+
+          totalWeightedGpa += courseGrade * course.credits;
+          totalCredits += course.credits;
+        }
+      }
+
+      if (totalCredits > 0) {
+        userGpas.push({ id: user.id, gpa: totalWeightedGpa / totalCredits });
+      }
+    }
+
+    if (userGpas.length < 2) {
+      return null;
+    }
+
+    userGpas.sort((a, b) => b.gpa - a.gpa);
+    const userRank = userGpas.findIndex((u) => u.id === userId) + 1;
+    const percentile = userRank > 0 
+      ? Math.round(((userGpas.length - userRank) / (userGpas.length - 1)) * 100)
+      : 0;
+    const averageGpa = userGpas.reduce((sum, u) => sum + u.gpa, 0) / userGpas.length;
+
+    return {
+      totalUsers: userGpas.length,
+      userRank: userRank > 0 ? userRank : userGpas.length,
+      percentile,
+      averageGpa: Math.round(averageGpa * 10) / 10,
+    };
   }
 
   // Semester operations
