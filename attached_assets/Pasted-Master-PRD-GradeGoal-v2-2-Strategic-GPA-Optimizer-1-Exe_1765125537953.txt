@@ -1,0 +1,124 @@
+Master PRD: GradeGoal (v2.2) - Strategic GPA Optimizer
+1. Executive Summary
+Product Name: GradeGoal Target Audience: Israeli University/College Students. Core Value: A strategic tool designed not just to track grades, but to optimize the final degree GPA. It empowers students to calculate exactly what scores they need to achieve their academic goals. Key Differentiator: Native support for the Israeli "Magen" (Protective Grade) system and real-time "What-If" simulations.
+
+2. User Experience (UX) & Design Principles
+Language & Localization:
+
+Interface must be Hebrew (RTL).
+
+Terminology needs to fit the Israeli academic ecosystem (e.g., "Nakaz" for credits, "Magen" for protective grades).
+
+Platform: Mobile-First Web Application (PWA ready).
+
+Visual Style: Modern SaaS look. Support for both Light and Dark modes.
+
+Accessibility Requirement: Critical focus on High Contrast text for inputs and data displays to ensure readability in all lighting conditions.
+
+Interactivity: Smooth transitions (using animation libraries) specifically for the grade simulation sliders.
+
+3. Functional Requirements
+3.1 Dashboard & Navigation (CRITICAL UI UPDATE)
+Navigation: Bottom Navigation Bar (Mobile style) allowing quick switching between Dashboard and Profile/Settings.
+
+Global Filtering: The user must be able to view their GPA based on different scopes (Entire Degree, Year, Semester).
+
+Dynamic GPA Header: A prominent display of the weighted GPA that updates instantly based on the selected filter.
+
+Accordion / Expandable Cards:
+
+Semesters in the Dashboard must appear as expandable cards (Accordion style).
+
+Direct Access: Users must NOT navigate to a separate page to view courses. Clicking a semester expands it to reveal courses and sliders immediately.
+
+Live Interaction: Adjusting a slider inside an expanded card must update the Main Degree GPA (at the top header) in real-time.
+
+3.2 Course & Semester Management
+Semester Creation Logic (Strict):
+
+No Free Text: Users cannot type a semester name manually.
+
+Selectors: The creation form must use Dropdowns/Selects for:
+
+Academic Year: Options 1 to 7.
+
+Term: Options 'A' (א), 'B' (ב), 'Summer' (קיץ).
+
+Auto-Naming: The system generates the semester name automatically (e.g., "Year 1 - Semester B").
+
+Course Input: Users input Course Name and Credits (Nakaz).
+
+Component Input: Users break down a course into components (e.g., Homework, Midterm, Final Exam).
+
+Each component has a Weight (0-100%).
+
+Each component has a Score.
+
+3.3 The "What-If" Simulation (Core Feature)
+UI: An interactive slider for grade components (specifically exams).
+
+Behavior: As the user drags the slider to change a theoretical grade, the Semester GPA and Degree GPA must recalculate and update in real-time.
+
+3.4 The "Magen" Algorithm (Business Logic)
+This is a mandatory calculation rule for Israeli academic institutions. For any course component marked as is_magen = true:
+
+Calculation A: Calculate the final course grade including the Magen component and its weight.
+
+Calculation B: Calculate the final course grade excluding the Magen component (transferring its weight to the Final Exam).
+
+Result: The system automatically selects the MAX value between Calculation A and Calculation B as the final course grade.
+
+4. Data Entities & Relationships
+The AI should design the database schema (e.g., Supabase/PostgreSQL) based on these relationships:
+
+User Profile:
+
+Stores Auth ID, Subscription Tier (Free/Pro), Target Degree GPA.
+
+New Field: academic_institution (Text) - To allow future comparative analytics per university.
+
+Semesters:
+
+Linked to User.
+
+Attributes: Name (Auto-generated), Academic Year (Integer 1-7), Term (Enum: A/B/Summer), Active Status.
+
+Courses:
+
+Linked to Semester.
+
+Attributes: Name, Credits (Float), Manual Target Grade (Optional).
+
+Grade Components:
+
+Linked to Course.
+
+Attributes: Name, Weight (Int), Score (Float), Is_Magen (Boolean).
+
+5. Monetization Strategy (Freemium & Data Growth)
+The strategy focuses on user acquisition first to build a dataset for future analytics features.
+
+Free Tier (Growth Driver):
+
+Unlimited Semester and Course creation (Full Degree Management).
+
+Full access to "What-If" sliders and Magen calculations.
+
+Ad-Supported: Contains placeholder areas for Banner Ads.
+
+Pro Tier (Premium Experience):
+
+No Ads: Clean interface.
+
+Cloud Backup: Guaranteed data persistence.
+
+Future Feature (Vision): "Percentile Ranking" – Users will be able to see their GPA percentile compared to other students in the same academic_institution (once sufficient data is collected).
+
+6. Technical Guidelines for AI Generation
+Tech Stack: Use a modern, robust frontend framework (React/Next.js recommended) and a scalable backend/BaaS (Supabase/Firebase).
+
+State Management: Ensure the state updates globally and efficiently (especially for the real-time GPA recalculation across components).
+
+Routing: Implement client-side routing that prevents page reloads and preserves state.
+
+Error Handling: Graceful degradation. If the backend is unreachable, the UI should still function for local changes where possible.
