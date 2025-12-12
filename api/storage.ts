@@ -13,7 +13,7 @@ import {
   type InsertGradeComponent,
   type SemesterWithCourses,
   type CourseWithComponents,
-} from "./shared/schema.js";
+} from "./schemas.js";
 import { db } from "./db.js";
 import { eq } from "drizzle-orm";
 
