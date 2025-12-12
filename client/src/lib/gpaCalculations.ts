@@ -23,7 +23,7 @@ export function calculateCourseGradeWithMagenInfo(components: GradeComponent[]):
   // Calculation A: Include all components with their weights
   const totalWeightA = components.reduce((sum, c) => sum + c.weight, 0);
   const gradeA = totalWeightA > 0
-    ? components.reduce((sum, c) => sum + (c.score || 0) * c.weight, 0) / totalWeightA
+    ? components.reduce((sum, c) => sum + ((c.score ?? 0) * c.weight), 0) / totalWeightA
     : 0;
 
   // If no magen components, return regular calculation
@@ -49,7 +49,7 @@ export function calculateCourseGradeWithMagenInfo(components: GradeComponent[]):
 
   const totalWeightB = adjustedComponents.reduce((sum, c) => sum + c.weight, 0);
   const gradeB = totalWeightB > 0
-    ? adjustedComponents.reduce((sum, c) => sum + (c.score || 0) * c.weight, 0) / totalWeightB
+    ? adjustedComponents.reduce((sum, c) => sum + ((c.score ?? 0) * c.weight), 0) / totalWeightB
     : 0;
 
   // Return the MAX of both calculations (Magen algorithm)
@@ -73,7 +73,7 @@ export function calculateSemesterGpa(courses: CourseWithComponents[]): number | 
 
   const totalCredits = gradedCourses.reduce((sum, c) => sum + c.credits, 0);
   const weightedSum = gradedCourses.reduce((sum, course) => {
-    const grade = calculateCourseGrade(course.gradeComponents) || 0;
+    const grade = calculateCourseGrade(course.gradeComponents) ?? 0;
     return sum + grade * course.credits;
   }, 0);
 

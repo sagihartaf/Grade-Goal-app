@@ -16,7 +16,6 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
-import { getSemesterDisplayName } from "../client/src/lib/gpaCalculations";
 
 export interface InstitutionStats {
   totalUsers: number;

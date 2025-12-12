@@ -1,7 +1,11 @@
 import { GraduationCap, Target, Sliders, Shield, ArrowLeft } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { supabase } from "@/lib/supabaseClient";
 
 const features = [
   {
@@ -22,8 +26,40 @@ const features = [
 ];
 
 export default function Landing() {
-  const handleLogin = () => {
-    window.location.href = "/api/login";
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [status, setStatus] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleAuth = async () => {
+    setIsLoading(true);
+    setStatus(null);
+    try {
+      if (mode === "signup") {
+        const { error, data } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        if (!data.session) {
+          setStatus("נשלח מייל אישור. בדוק את התיבה שלך כדי להשלים הרשמה.");
+        } else {
+          setStatus("ההרשמה הצליחה! מועבר לדשבורד...");
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        setStatus("התחברת בהצלחה! מועבר לדשבורד...");
+      }
+    } catch (err: any) {
+      setStatus(err?.message || "שגיאה בהתחברות");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -36,7 +72,14 @@ export default function Landing() {
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button onClick={handleLogin} data-testid="button-login-header">
+            <Button
+              onClick={() => {
+                setMode("signin");
+                document.getElementById("email")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                document.getElementById("email")?.focus();
+              }}
+              data-testid="button-login-header"
+            >
               התחברות
             </Button>
           </div>
@@ -62,16 +105,62 @@ export default function Landing() {
               חשב בדיוק אילו ציונים אתה צריך כדי להשיג את היעדים שלך.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                size="lg" 
-                onClick={handleLogin}
-                className="text-lg px-8"
-                data-testid="button-login-hero"
-              >
-                התחל עכשיו
-                <ArrowLeft className="w-5 h-5 me-2" />
-              </Button>
+            <div className="max-w-md mx-auto bg-card border rounded-xl p-6 text-start space-y-4 shadow-sm">
+              <div className="flex gap-2 mb-2">
+                <Button
+                  variant={mode === "signin" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setMode("signin")}
+                >
+                  התחברות
+                </Button>
+                <Button
+                  variant={mode === "signup" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setMode("signup")}
+                >
+                  הרשמה
+                </Button>
+              </div>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="email">אימייל</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="password">סיסמה</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                  />
+                </div>
+                <Button
+                  size="lg"
+                  className="w-full"
+                  onClick={handleAuth}
+                  disabled={isLoading || !email || !password}
+                  data-testid="button-auth-submit"
+                >
+                  {isLoading ? "מעבד..." : mode === "signin" ? "התחבר" : "הירשם"}
+                  <ArrowLeft className="w-5 h-5 me-2" />
+                </Button>
+                {status && (
+                  <p className="text-sm text-muted-foreground text-center" data-testid="auth-status">
+                    {status}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </section>
@@ -115,7 +204,11 @@ export default function Landing() {
             </p>
             <Button 
               size="lg" 
-              onClick={handleLogin}
+              onClick={() => {
+                setMode("signin");
+                document.getElementById("email")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                document.getElementById("email")?.focus();
+              }}
               data-testid="button-login-cta"
             >
               התחבר עכשיו - חינם

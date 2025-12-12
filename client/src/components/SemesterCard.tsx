@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 interface SemesterCardProps {
   semester: SemesterWithCourses;
   onComponentScoreChange: (componentId: string, score: number) => void;
+  onComponentScoreCommit?: (componentId: string, score: number) => void;
   onTargetGradeChange?: (courseId: string, targetGrade: number | null) => void;
   onAddCourse?: () => void;
   onDeleteSemester?: (semesterId: string) => void;
@@ -22,6 +23,7 @@ interface SemesterCardProps {
 export function SemesterCard({
   semester,
   onComponentScoreChange,
+  onComponentScoreCommit,
   onTargetGradeChange,
   onAddCourse,
   onDeleteSemester,
@@ -140,6 +142,7 @@ export function SemesterCard({
                     isExpanded={expandedCourses.has(course.id)}
                     onToggle={() => toggleCourse(course.id)}
                     onComponentScoreChange={onComponentScoreChange}
+                  onComponentScoreCommit={onComponentScoreCommit}
                     onTargetGradeChange={onTargetGradeChange}
                     onDeleteCourse={onDeleteCourse}
                     onEditCourse={onEditCourse}

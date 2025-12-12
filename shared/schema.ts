@@ -7,8 +7,6 @@ import {
   real,
   boolean,
   timestamp,
-  jsonb,
-  index,
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -17,18 +15,7 @@ import { z } from "zod";
 // Enum for semester terms
 export const termEnum = pgEnum("term", ["A", "B", "Summer"]);
 
-// Session storage table for Replit Auth
-export const sessions = pgTable(
-  "sessions",
-  {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
-  },
-  (table) => [index("IDX_session_expire").on(table.expire)]
-);
-
-// Users table - stores user profiles with Replit Auth
+// Users table - stores user profiles authenticated via Supabase
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),

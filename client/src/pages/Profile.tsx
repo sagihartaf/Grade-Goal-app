@@ -23,6 +23,7 @@ import { BottomNavigation } from "@/components/BottomNavigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { supabase } from "@/lib/supabaseClient";
 
 const formSchema = z.object({
   academicInstitution: z.string().optional(),
@@ -67,17 +68,19 @@ export default function Profile() {
           description: "נא להתחבר מחדש...",
           variant: "destructive",
         });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
+        supabase.auth.signOut().finally(() => {
+          window.location.href = "/";
+        });
         return;
       }
       toast({ title: "שגיאה בעדכון הפרופיל", variant: "destructive" });
     },
   });
 
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    queryClient.clear();
+    window.location.href = "/";
   };
 
   const handleSubmit = (data: FormData) => {

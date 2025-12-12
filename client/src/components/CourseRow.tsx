@@ -17,6 +17,7 @@ interface CourseRowProps {
   isExpanded: boolean;
   onToggle: () => void;
   onComponentScoreChange: (componentId: string, score: number) => void;
+  onComponentScoreCommit?: (componentId: string, score: number) => void;
   onTargetGradeChange?: (courseId: string, targetGrade: number | null) => void;
   onDeleteCourse?: (courseId: string) => void;
   onEditCourse?: (course: CourseWithComponents) => void;
@@ -27,6 +28,7 @@ export function CourseRow({
   isExpanded,
   onToggle,
   onComponentScoreChange,
+  onComponentScoreCommit,
   onTargetGradeChange,
   onDeleteCourse,
   onEditCourse,
@@ -266,6 +268,7 @@ export function CourseRow({
                 key={component.id}
                 value={component.score}
                 onChange={(score) => onComponentScoreChange(component.id, score)}
+                onCommit={onComponentScoreCommit ? (score) => onComponentScoreCommit(component.id, score) : undefined}
                 componentName={component.name}
                 weight={component.weight}
                 isMagen={component.isMagen || false}

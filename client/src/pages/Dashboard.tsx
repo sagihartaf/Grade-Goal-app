@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Loader2, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,8 +37,9 @@ export default function Dashboard() {
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [activeSemesterId, setActiveSemesterId] = useState<string | null>(null);
   const [editingCourse, setEditingCourse] = useState<CourseWithComponents | null>(null);
-
-  const [localScores, setLocalScores] = useState<Record<string, number>>({});
+  const [localGrades, setLocalGrades] = useState<Record<string, number>>({});
+  const pendingGradeUpdates = useRef<Set<string>>(new Set());
+  const scoreDebounceTimer = useRef<number | null>(null);
 
   const { data: semesters = [], isLoading } = useQuery<SemesterWithCourses[]>({
     queryKey: ["/api/semesters"],
@@ -48,18 +49,19 @@ export default function Dashboard() {
     queryKey: ["/api/profile"],
   });
 
-  const semestersWithLocalScores = useMemo(() => {
+  // Merge server semesters with local slider edits for instant feedback
+  const effectiveSemesters = useMemo(() => {
     return semesters.map((semester) => ({
       ...semester,
       courses: semester.courses.map((course) => ({
         ...course,
         gradeComponents: course.gradeComponents.map((component) => ({
           ...component,
-          score: localScores[component.id] ?? component.score,
+          score: localGrades[component.id] ?? component.score ?? null,
         })),
       })),
     }));
-  }, [semesters, localScores]);
+  }, [semesters, localGrades]);
 
   const handleExportPdf = useCallback(() => {
     if (semesters.length === 0) {
@@ -74,33 +76,33 @@ export default function Dashboard() {
       title: "מכין את הדוח...",
       description: "חלון הדפסה נפתח - שמור כ-PDF",
     });
-    openPrintReport(semestersWithLocalScores, user);
-  }, [semesters.length, semestersWithLocalScores, user, toast]);
+    openPrintReport(effectiveSemesters, user);
+  }, [semesters.length, effectiveSemesters, user, toast]);
 
   const sortedSemesters = useMemo(() => {
-    return [...semestersWithLocalScores].sort((a, b) => {
+    return [...effectiveSemesters].sort((a, b) => {
       if (a.academicYear !== b.academicYear) {
         return a.academicYear - b.academicYear;
       }
       const termOrder = { A: 1, B: 2, Summer: 3 };
       return termOrder[a.term] - termOrder[b.term];
     });
-  }, [semestersWithLocalScores]);
+  }, [effectiveSemesters]);
 
   const degreeGpa = useMemo(
-    () => calculateDegreeGpa(semestersWithLocalScores),
-    [semestersWithLocalScores]
+    () => calculateDegreeGpa(effectiveSemesters),
+    [effectiveSemesters]
   );
 
   const yearGpa = useMemo(
-    () => calculateYearGpa(semestersWithLocalScores, selectedYear),
-    [semestersWithLocalScores, selectedYear]
+    () => calculateYearGpa(effectiveSemesters, selectedYear),
+    [effectiveSemesters, selectedYear]
   );
 
   const semesterGpa = useMemo(() => {
-    const semester = semestersWithLocalScores.find((s) => s.id === selectedSemesterId);
+    const semester = effectiveSemesters.find((s) => s.id === selectedSemesterId);
     return semester ? calculateSemesterGpa(semester.courses) : null;
-  }, [semestersWithLocalScores, selectedSemesterId]);
+  }, [effectiveSemesters, selectedSemesterId]);
 
   interface InstitutionStats {
     totalUsers: number;
@@ -225,14 +227,52 @@ export default function Dashboard() {
   });
 
   const handleComponentScoreChange = useCallback((componentId: string, score: number) => {
-    setLocalScores((prev) => ({ ...prev, [componentId]: score }));
-    
-    const timeoutId = setTimeout(() => {
-      updateScoreMutation.mutate({ componentId, score });
+    // Instant, synchronous UI update: only touch local state
+    setLocalGrades((prev) => ({
+      ...prev,
+      [componentId]: score,
+    }));
+    pendingGradeUpdates.current.add(componentId);
+  }, []);
+
+  const handleComponentScoreCommit = useCallback((componentId: string, score: number) => {
+    // Ensure local state reflects the final drag position
+    setLocalGrades((prev) => ({
+      ...prev,
+      [componentId]: score,
+    }));
+    // Save immediately on drag end (in addition to the debounce safety net)
+    updateScoreMutation.mutate({ componentId, score });
+  }, [updateScoreMutation]);
+
+  // Background saver: debounce writes so UI never waits on the network
+  useEffect(() => {
+    if (pendingGradeUpdates.current.size === 0) return;
+
+    if (scoreDebounceTimer.current) {
+      clearTimeout(scoreDebounceTimer.current);
+    }
+
+    scoreDebounceTimer.current = window.setTimeout(() => {
+      const toSave = Array.from(pendingGradeUpdates.current);
+      pendingGradeUpdates.current.clear();
+      scoreDebounceTimer.current = null;
+
+      toSave.forEach((componentId) => {
+        const score = localGrades[componentId];
+        if (score !== undefined) {
+          updateScoreMutation.mutate({ componentId, score });
+        }
+      });
     }, 500);
 
-    return () => clearTimeout(timeoutId);
-  }, [updateScoreMutation]);
+    return () => {
+      if (scoreDebounceTimer.current) {
+        clearTimeout(scoreDebounceTimer.current);
+        scoreDebounceTimer.current = null;
+      }
+    };
+  }, [localGrades, updateScoreMutation]);
 
   const handleAddCourse = (semesterId: string) => {
     setActiveSemesterId(semesterId);
@@ -333,6 +373,7 @@ export default function Dashboard() {
         currentFilter={currentFilter}
         onFilterChange={handleFilterChange}
         institutionStats={institutionStats}
+        semesters={effectiveSemesters}
       />
 
       <div className="py-3">
@@ -369,6 +410,7 @@ export default function Dashboard() {
                 onDeleteSemester={handleDeleteSemester}
                 onDeleteCourse={handleDeleteCourse}
                 onEditCourse={handleEditCourse}
+                onComponentScoreCommit={handleComponentScoreCommit}
               />
             ))}
 

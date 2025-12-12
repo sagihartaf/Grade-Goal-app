@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 interface GradeSliderProps {
   value: number | null;
   onChange: (value: number) => void;
+  onCommit?: (value: number) => void;
   disabled?: boolean;
   isMagen?: boolean;
   componentName: string;
@@ -15,6 +16,7 @@ interface GradeSliderProps {
 export function GradeSlider({
   value,
   onChange,
+  onCommit,
   disabled = false,
   isMagen = false,
   componentName,
@@ -62,6 +64,7 @@ export function GradeSlider({
           <Slider
             value={[displayValue]}
             onValueChange={handleValueChange}
+            onValueCommit={(values) => onCommit?.(values[0])}
             onPointerDown={() => setIsInteracting(true)}
             onPointerUp={() => setIsInteracting(false)}
             onPointerLeave={() => setIsInteracting(false)}

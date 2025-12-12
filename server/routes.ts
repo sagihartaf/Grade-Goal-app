@@ -1,21 +1,14 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
 import { handleLemonSqueezyWebhook } from "./lemonSqueezyWebhook";
+import { requireAuth, type AuthedRequest } from "./supabaseAuth";
 
-export async function registerRoutes(
-  httpServer: Server,
-  app: Express
-): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
-
+export function registerRoutes(app: Express): void {
   // Auth routes
-  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+  app.get("/api/auth/user", requireAuth, async (req: AuthedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.authUser!.id;
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -25,9 +18,9 @@ export async function registerRoutes(
   });
 
   // Update user profile
-  app.patch("/api/profile", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/profile", requireAuth, async (req: AuthedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.authUser!.id;
       
       const schema = z.object({
         academicInstitution: z.string().optional(),
@@ -44,9 +37,9 @@ export async function registerRoutes(
   });
 
   // Get all semesters for the authenticated user
-  app.get("/api/semesters", isAuthenticated, async (req: any, res) => {
+  app.get("/api/semesters", requireAuth, async (req: AuthedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.authUser!.id;
       const semesters = await storage.getSemestersByUserId(userId);
       res.json(semesters);
     } catch (error) {
@@ -56,9 +49,9 @@ export async function registerRoutes(
   });
 
   // Create a new semester
-  app.post("/api/semesters", isAuthenticated, async (req: any, res) => {
+  app.post("/api/semesters", requireAuth, async (req: AuthedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.authUser!.id;
       
       const schema = z.object({
         academicYear: z.number().min(1).max(7),
@@ -75,9 +68,9 @@ export async function registerRoutes(
   });
 
   // Delete a semester
-  app.delete("/api/semesters/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/semesters/:id", requireAuth, async (req: AuthedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.authUser!.id;
       const semesterId = req.params.id;
 
       // Verify ownership
@@ -95,9 +88,9 @@ export async function registerRoutes(
   });
 
   // Create a new course
-  app.post("/api/courses", isAuthenticated, async (req: any, res) => {
+  app.post("/api/courses", requireAuth, async (req: AuthedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.authUser!.id;
       
       const schema = z.object({
         semesterId: z.string(),
@@ -139,9 +132,9 @@ export async function registerRoutes(
   });
 
   // Update course (name, credits, components)
-  app.put("/api/courses/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/courses/:id", requireAuth, async (req: AuthedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.authUser!.id;
       const courseId = req.params.id;
       
       const schema = z.object({
@@ -188,9 +181,9 @@ export async function registerRoutes(
   });
 
   // Update course target grade
-  app.patch("/api/courses/:id/target", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/courses/:id/target", requireAuth, async (req: AuthedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.authUser!.id;
       const courseId = req.params.id;
       
       const schema = z.object({
@@ -219,9 +212,9 @@ export async function registerRoutes(
   });
 
   // Delete a course
-  app.delete("/api/courses/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/courses/:id", requireAuth, async (req: AuthedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.authUser!.id;
       const courseId = req.params.id;
 
       // Verify ownership through semester
@@ -244,9 +237,9 @@ export async function registerRoutes(
   });
 
   // Get institution statistics for percentile ranking
-  app.get("/api/stats/institution", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stats/institution", requireAuth, async (req: AuthedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.authUser!.id;
       const userGpa = parseFloat(req.query.gpa as string);
       
       if (isNaN(userGpa)) {
@@ -262,9 +255,9 @@ export async function registerRoutes(
   });
 
   // Update grade component score
-  app.patch("/api/grade-components/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/grade-components/:id", requireAuth, async (req: AuthedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.authUser!.id;
       const componentId = req.params.id;
       
       const schema = z.object({
@@ -298,9 +291,9 @@ export async function registerRoutes(
   });
 
   // Get user subscription status
-  app.get("/api/subscription", isAuthenticated, async (req: any, res) => {
+  app.get("/api/subscription", requireAuth, async (req: AuthedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.authUser!.id;
       const user = await storage.getUser(userId);
       
       res.json({
@@ -315,6 +308,4 @@ export async function registerRoutes(
 
   // Lemon Squeezy webhook
   app.post("/api/webhooks/lemon-squeezy", handleLemonSqueezyWebhook);
-
-  return httpServer;
 }

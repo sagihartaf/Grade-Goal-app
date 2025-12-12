@@ -1,9 +1,11 @@
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { formatGpa } from "@/lib/gpaCalculations";
+import { formatGpa, calculateDegreeGpa } from "@/lib/gpaCalculations";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Users } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { SemesterWithCourses } from "@shared/schema";
 
 type FilterScope = "degree" | "year" | "semester";
 
@@ -23,6 +25,7 @@ interface GpaHeaderProps {
   onFilterChange?: (filter: FilterScope) => void;
   currentFilter?: FilterScope;
   institutionStats?: InstitutionStats | null;
+  semesters?: SemesterWithCourses[];
 }
 
 export function GpaHeader({
@@ -34,7 +37,15 @@ export function GpaHeader({
   onFilterChange,
   currentFilter = "degree",
   institutionStats,
+  semesters,
 }: GpaHeaderProps) {
+  const resolvedDegreeGpa = useMemo(() => {
+    if (semesters) {
+      return calculateDegreeGpa(semesters);
+    }
+    return degreeGpa ?? null;
+  }, [degreeGpa, semesters]);
+
   const getDisplayGpa = () => {
     switch (currentFilter) {
       case "year":
@@ -42,7 +53,7 @@ export function GpaHeader({
       case "semester":
         return semesterGpa;
       default:
-        return degreeGpa;
+        return resolvedDegreeGpa;
     }
   };
 
