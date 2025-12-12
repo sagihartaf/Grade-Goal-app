@@ -45,7 +45,7 @@ export function PayPalSubscription({ clientId }: PayPalSubscriptionProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
 
       setTimeout(() => {
-        navigate("/dashboard");
+        navigate("/");
       }, 1500);
     } catch (error) {
       console.error("Error upgrading subscription:", error);
