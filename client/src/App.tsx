@@ -11,6 +11,8 @@ import Dashboard from "@/pages/Dashboard";
 import Analytics from "@/pages/Analytics";
 import Profile from "@/pages/Profile";
 import Subscription from "@/pages/Subscription";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import TermsOfService from "@/pages/TermsOfService";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedRoutes() {
@@ -21,6 +23,8 @@ function AuthenticatedRoutes() {
         <Route path="/analytics" component={Analytics} />
         <Route path="/profile" component={Profile} />
         <Route path="/subscription" component={Subscription} />
+        <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/terms" component={TermsOfService} />
         <Route component={NotFound} />
       </Switch>
       <StickyBottomAd />
@@ -35,6 +39,8 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/terms" component={TermsOfService} />
         <Route component={NotFound} />
       </Switch>
     );
