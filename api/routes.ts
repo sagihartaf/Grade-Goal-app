@@ -1,8 +1,8 @@
 import type { Express } from "express";
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 import { z } from "zod";
-import { handleLemonSqueezyWebhook } from "./lemonSqueezyWebhook";
-import { requireAuth, type AuthedRequest } from "./supabaseAuth";
+import { handleLemonSqueezyWebhook } from "./lemonSqueezyWebhook.js";
+import { requireAuth, type AuthedRequest } from "./supabaseAuth.js";
 
 export function registerRoutes(app: Express): void {
   // Auth routes

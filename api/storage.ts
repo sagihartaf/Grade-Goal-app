@@ -14,7 +14,7 @@ import {
   type SemesterWithCourses,
   type CourseWithComponents,
 } from "@shared/schema";
-import { db } from "./db";
+import { db } from "./db.js";
 import { eq } from "drizzle-orm";
 
 export interface InstitutionStats {

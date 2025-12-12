@@ -1,6 +1,6 @@
 import { createClient, type User as SupabaseUser } from "@supabase/supabase-js";
 import type { Request, RequestHandler } from "express";
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 
 declare global {
   namespace Express {
