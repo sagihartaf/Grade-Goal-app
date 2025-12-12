@@ -17,8 +17,8 @@ export function PayPalSubscription({ clientId }: PayPalSubscriptionProps) {
   const [, navigate] = useLocation();
 
   const planIds = {
-    monthly: "8M66MQ2FXQSJC",
-    yearly: "7GS7K82TK5SKU",
+    monthly: "P-57T72664747934907NE6BWDA",
+    yearly: "P-9DW09974KX486404FNE6BXOA",
   };
 
   const prices = {
