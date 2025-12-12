@@ -9,7 +9,7 @@ import { StickyBottomAd } from "@/components/AdPlaceholder";
 import { Analytics } from "@vercel/analytics/react";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
-import Analytics as AnalyticsPage from "@/pages/Analytics";
+import AnalyticsPage from "@/pages/Analytics";
 import Profile from "@/pages/Profile";
 import Subscription from "@/pages/Subscription";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
