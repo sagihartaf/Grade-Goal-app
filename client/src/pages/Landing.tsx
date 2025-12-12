@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { supabase } from "@/lib/supabaseClient";
-import { navigate } from "wouter/use-location";
+import { useLocation } from "wouter";
 
 const features = [
   {
@@ -32,6 +32,7 @@ export default function Landing() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [status, setStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [, navigate] = useLocation();
 
   const handleAuth = async () => {
     setIsLoading(true);
