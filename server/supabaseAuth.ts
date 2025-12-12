@@ -2,6 +2,14 @@ import { createClient, type User as SupabaseUser } from "@supabase/supabase-js";
 import type { Request, RequestHandler } from "express";
 import { storage } from "./storage";
 
+declare global {
+  namespace Express {
+    interface Request {
+      authUser?: SupabaseUser;
+    }
+  }
+}
+
 if (!process.env.SUPABASE_URL) {
   throw new Error("SUPABASE_URL is not set");
 }

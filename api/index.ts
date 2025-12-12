@@ -1,4 +1,99 @@
-import app from "../server/index.ts";
+import "dotenv/config";
+import express, { type Request, type Response, type NextFunction } from "express";
+import { createServer } from "http";
+import { registerRoutes } from "../server/routes";
+import { serveStatic } from "../server/static";
+
+const app = express();
+const httpServer = createServer(app);
+
+declare module "http" {
+  interface IncomingMessage {
+    rawBody: unknown;
+  }
+}
+
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      (req as Request).rawBody = buf;
+    },
+  }),
+);
+
+app.use(express.urlencoded({ extended: false }));
+
+export function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+
+      log(logLine);
+    }
+  });
+
+  next();
+});
+
+registerRoutes(app);
+
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+
+  res.status(status).json({ message });
+  throw err;
+});
+
+// In production (Vercel) we don't start a server; Vercel handles the port.
+// In local development, start the server.
+if (process.env.NODE_ENV === "production") {
+  serveStatic(app);
+} else {
+  (async () => {
+    const { setupVite } = await import("../server/vite");
+    await setupVite(httpServer, app);
+  })();
+}
+
+if (process.env.NODE_ENV !== "production") {
+  const port = parseInt(process.env.PORT || "5000", 10);
+  const host = process.env.HOST || "127.0.0.1";
+  httpServer.listen(
+    {
+      port,
+      host,
+    },
+    () => {
+      log(`serving on http://${host}:${port}`);
+    },
+  );
+}
 
 export default app;
 
