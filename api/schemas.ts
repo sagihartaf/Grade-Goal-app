@@ -137,3 +137,4 @@ export type SemesterWithCourses = Semester & {
   courses: CourseWithComponents[];
 };
 
+
