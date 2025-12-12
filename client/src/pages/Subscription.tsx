@@ -1,25 +1,24 @@
-import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Check, Crown, Sparkles } from "lucide-react";
-import { useProStatus } from "@/hooks/useProStatus";
+import { PayPalSubscription } from "@/components/PayPalSubscription";
 
 interface SubscriptionData {
   subscriptionTier: string;
 }
 
 export default function Subscription() {
+  const queryClient = useQueryClient();
   const { data: subscription, isLoading } = useQuery<SubscriptionData>({
     queryKey: ["/api/subscription"],
   });
 
-  const { redirectToCheckout } = useProStatus();
-
   const isPro = subscription?.subscriptionTier === "pro";
+  const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
 
   const features = [
     { name: "חישוב ממוצע ציונים", free: true, pro: true },
@@ -118,15 +117,12 @@ export default function Subscription() {
                 <div className="text-center text-sm text-muted-foreground py-2">
                   אתם מנויי Pro פעילים
                 </div>
+              ) : paypalClientId ? (
+                <PayPalSubscription clientId={paypalClientId} />
               ) : (
-                <Button
-                  className="w-full"
-                  onClick={redirectToCheckout}
-                  data-testid="button-upgrade-pro"
-                >
-                  <Crown className="w-4 h-4 ms-2" />
-                  שדרג לפרו
-                </Button>
+                <div className="text-center text-sm text-muted-foreground py-2">
+                  PayPal לא מוגדר
+                </div>
               )}
             </CardContent>
           </Card>

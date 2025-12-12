@@ -305,4 +305,30 @@ export function registerRoutes(app: Express): void {
     }
   });
 
+  // Upgrade subscription to Pro
+  app.post("/api/subscription/upgrade", requireAuth, async (req: AuthedRequest, res) => {
+    try {
+      const userId = req.authUser!.id;
+      const { subscriptionId, planId } = req.body;
+
+      // Update user to pro tier
+      const updatedUser = await storage.updateUserStripeInfo(userId, {
+        subscriptionTier: "pro",
+        stripeSubscriptionId: subscriptionId || null,
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({
+        success: true,
+        subscriptionTier: updatedUser.subscriptionTier,
+      });
+    } catch (error) {
+      console.error("Error upgrading subscription:", error);
+      res.status(500).json({ message: "Failed to upgrade subscription" });
+    }
+  });
+
 }
