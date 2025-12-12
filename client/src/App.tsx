@@ -6,9 +6,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { StickyBottomAd } from "@/components/AdPlaceholder";
+import { Analytics } from "@vercel/analytics/react";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
-import Analytics from "@/pages/Analytics";
+import Analytics as AnalyticsPage from "@/pages/Analytics";
 import Profile from "@/pages/Profile";
 import Subscription from "@/pages/Subscription";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
@@ -20,7 +21,7 @@ function AuthenticatedRoutes() {
     <>
       <Switch>
         <Route path="/" component={Dashboard} />
-        <Route path="/analytics" component={Analytics} />
+        <Route path="/analytics" component={AnalyticsPage} />
         <Route path="/profile" component={Profile} />
         <Route path="/subscription" component={Subscription} />
         <Route path="/privacy" component={PrivacyPolicy} />
@@ -56,6 +57,7 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Router />
+          <Analytics />
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
