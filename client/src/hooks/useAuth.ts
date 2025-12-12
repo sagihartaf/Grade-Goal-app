@@ -36,7 +36,9 @@ export function useAuth() {
 
   return {
     user,
-    isLoading: isSessionLoading || isUserLoading,
-    isAuthenticated: hasSession && !!user,
+    // Route gating should rely on Supabase session presence only.
+    // User fetch can be slower/optional; don't block navigation on it.
+    isLoading: isSessionLoading,
+    isAuthenticated: hasSession,
   };
 }

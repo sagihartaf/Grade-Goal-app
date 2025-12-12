@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { supabase } from "@/lib/supabaseClient";
+import { navigate } from "wouter/use-location";
 
 const features = [
   {
@@ -54,6 +55,8 @@ export default function Landing() {
         });
         if (error) throw error;
         setStatus("התחברת בהצלחה! מועבר לדשבורד...");
+        // Immediate client-side redirect to ensure UX even if async listeners lag
+        navigate("/");
       }
     } catch (err: any) {
       setStatus(err?.message || "שגיאה בהתחברות");
