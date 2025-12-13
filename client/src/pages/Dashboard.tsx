@@ -322,6 +322,14 @@ export default function Dashboard() {
     }
   }, [semesters.length, isPro]);
 
+  const handleSmartStrategyClick = useCallback(() => {
+    if (!isPro) {
+      setIsPaywallOpen(true);
+      return;
+    }
+    setIsSmartStrategyOpen(true);
+  }, [isPro]);
+
   const handleTargetGradeChange = useCallback((courseId: string, targetGrade: number | null) => {
     updateTargetGradeMutation.mutate({ courseId, targetGrade });
   }, [updateTargetGradeMutation]);
@@ -371,7 +379,7 @@ export default function Dashboard() {
         <Button
           size="icon"
           variant={isPro ? "default" : "ghost"}
-          onClick={() => setIsSmartStrategyOpen(true)}
+          onClick={handleSmartStrategyClick}
           data-testid="button-smart-strategy"
           title="אסטרטגיית לימוד חכמה"
           className={isPro ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600" : ""}
