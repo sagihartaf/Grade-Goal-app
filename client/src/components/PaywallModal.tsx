@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Crown, Check, Brain, Sparkles } from 'lucide-react';
 import { PayPalSubscription } from './PayPalSubscription';
+import { useProStatus } from '@/hooks/useProStatus';
 
 interface PaywallModalProps {
   open: boolean;
@@ -12,6 +13,7 @@ interface PaywallModalProps {
 }
 
 export function PaywallModal({ open, onOpenChange, trigger = 'feature' }: PaywallModalProps) {
+  const { isPro } = useProStatus();
   const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
 
   const features = [
@@ -115,7 +117,11 @@ export function PaywallModal({ open, onOpenChange, trigger = 'feature' }: Paywal
                 ))}
               </ul>
 
-              {paypalClientId ? (
+              {isPro ? (
+                <div className="text-center text-sm text-muted-foreground py-4">
+                  אתם מנויי Pro פעילים ✓
+                </div>
+              ) : paypalClientId ? (
                 <PayPalSubscription clientId={paypalClientId} />
               ) : (
                 <div className="text-center text-sm text-muted-foreground py-4">
