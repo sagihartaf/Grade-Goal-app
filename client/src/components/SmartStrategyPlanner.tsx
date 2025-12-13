@@ -93,7 +93,7 @@ export function SmartStrategyPlanner({
             <DialogTitle className="flex items-center gap-2">
               <Brain className="w-5 h-5 text-amber-500" />
               אסטרטגיית לימוד חכמה
-              {isPro && <Crown className="w-4 h-4 text-amber-500" />}
+              <Crown className="w-4 h-4 text-amber-500" />
             </DialogTitle>
             <DialogDescription>
               תוכנית מותאמת אישית המבוססת על הביצועים ההיסטוריים שלך - האלגוריתם לומד מהציונים הקודמים שלך ומתאים את ההמלצות

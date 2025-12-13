@@ -30,7 +30,17 @@ export function registerRoutes(app: Express): void {
       });
 
       const data = schema.parse(req.body);
-      const user = await storage.updateUserProfile(userId, data);
+      
+      // Sanitize data: convert undefined to null for nullable fields
+      const sanitizedData = {
+        academicInstitution: data.academicInstitution ?? undefined,
+        degreeName: data.degreeName ?? undefined,
+        targetGpa: data.targetGpa ?? null,
+        legacyCredits: data.legacyCredits ?? null,
+        legacyGpa: data.legacyGpa ?? null,
+      };
+      
+      const user = await storage.updateUserProfile(userId, sanitizedData);
       res.json(user);
     } catch (error) {
       console.error("Error updating profile:", error);
