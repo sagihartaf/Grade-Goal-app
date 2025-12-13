@@ -37,6 +37,7 @@ export default function Dashboard() {
   const [semesterDialogMode, setSemesterDialogMode] = useState<"regular" | "completedYear">("regular");
   const [isCreateCourseOpen, setIsCreateCourseOpen] = useState(false);
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+  const [paywallTrigger, setPaywallTrigger] = useState<"smart_strategy" | "analytics" | "export" | "feature">("feature");
   const [isSmartStrategyOpen, setIsSmartStrategyOpen] = useState(false);
   const [activeSemesterId, setActiveSemesterId] = useState<string | null>(null);
   const [editingCourse, setEditingCourse] = useState<CourseWithComponents | null>(null);
@@ -309,6 +310,7 @@ export default function Dashboard() {
       setSemesterDialogMode("regular");
       setIsCreateSemesterOpen(true);
     } else {
+      setPaywallTrigger("feature");
       setIsPaywallOpen(true);
     }
   }, [semesters.length, isPro]);
@@ -318,12 +320,14 @@ export default function Dashboard() {
       setSemesterDialogMode("completedYear");
       setIsCreateSemesterOpen(true);
     } else {
+      setPaywallTrigger("feature");
       setIsPaywallOpen(true);
     }
   }, [semesters.length, isPro]);
 
   const handleSmartStrategyClick = useCallback(() => {
     if (!isPro) {
+      setPaywallTrigger("smart_strategy");
       setIsPaywallOpen(true);
       return;
     }
@@ -517,7 +521,7 @@ export default function Dashboard() {
       <PaywallModal
         open={isPaywallOpen}
         onOpenChange={setIsPaywallOpen}
-        trigger="semester_limit"
+        trigger={paywallTrigger}
       />
 
       <SmartStrategyPlanner

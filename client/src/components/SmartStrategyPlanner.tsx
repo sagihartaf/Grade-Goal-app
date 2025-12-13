@@ -16,8 +16,6 @@ import { calculateSmartStrategy, getFutureCourses, getCompletedCourses } from "@
 import { calculateDegreeGpa } from "@/lib/gpaCalculations";
 import type { SemesterWithCourses, CourseWithComponents, User } from "@shared/schema";
 import { cn } from "@/lib/utils";
-import { useProStatus } from "@/hooks/useProStatus";
-import { PaywallModal } from "./PaywallModal";
 
 interface SmartStrategyPlannerProps {
   open: boolean;
@@ -32,11 +30,9 @@ export function SmartStrategyPlanner({
   semesters,
   user,
 }: SmartStrategyPlannerProps) {
-  const { isPro } = useProStatus();
   const [targetGPA, setTargetGPA] = useState<number>(90);
   const [maxRealisticGrade, setMaxRealisticGrade] = useState<number>(97);
   const [strategyResult, setStrategyResult] = useState<any>(null);
-  const [showPaywall, setShowPaywall] = useState(false);
 
   // Extract global legacy data (backward compatibility)
   const globalLegacyCredits = user?.legacyCredits || 0;
@@ -71,11 +67,6 @@ export function SmartStrategyPlanner({
   };
 
   const handleGenerateStrategy = () => {
-    if (!isPro) {
-      setShowPaywall(true);
-      return;
-    }
-
     const result = calculateSmartStrategy({
       currentGPA,
       totalCreditsSoFar: completedCredits,
@@ -192,17 +183,10 @@ export function SmartStrategyPlanner({
                   className="w-full"
                   size="lg"
                 >
-                  {isPro ? (
-                    <>
-                      <Sparkles className="w-4 h-4 ms-2" />
-                      צור אסטרטגיה
-                    </>
-                  ) : (
-                    <>
-                      <Crown className="w-4 h-4 ms-2" />
-                      שדרג לפרו כדי להשתמש בכלי
-                    </>
-                  )}
+                  <>
+                    <Sparkles className="w-4 h-4 ms-2" />
+                    צור אסטרטגיה
+                  </>
                 </Button>
               </>
             ) : (
@@ -300,12 +284,6 @@ export function SmartStrategyPlanner({
           </div>
         </DialogContent>
       </Dialog>
-
-      <PaywallModal
-        open={showPaywall}
-        onOpenChange={setShowPaywall}
-        trigger="smart_strategy"
-      />
     </>
   );
 }

@@ -1,37 +1,39 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Crown, Check, Loader2 } from 'lucide-react';
-import { useProStatus, FREE_TIER_SEMESTER_LIMIT } from '@/hooks/useProStatus';
+import { Crown, Check, Brain, Sparkles } from 'lucide-react';
+import { PayPalSubscription } from './PayPalSubscription';
 
 interface PaywallModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  trigger?: 'semester_limit' | 'feature' | 'manual';
+  trigger?: 'smart_strategy' | 'analytics' | 'export' | 'feature';
 }
 
-const PRO_FEATURES = [
-  'סמסטרים ללא הגבלה',
-  'קורסים ללא הגבלה',
-  'סימולציות What-If מתקדמות',
-  'ייצוא דוחות PDF',
-  'דירוג אחוזונים',
-  'אנליטיקות מתקדמות',
-  'ללא פרסומות',
-];
+export function PaywallModal({ open, onOpenChange, trigger = 'feature' }: PaywallModalProps) {
+  const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
 
-export function PaywallModal({ open, onOpenChange, trigger = 'manual' }: PaywallModalProps) {
-  const { redirectToCheckout, isLoading } = useProStatus();
-
-  const handlePurchase = () => {
-    redirectToCheckout();
-  };
+  const features = [
+    { name: "חישוב ממוצע ציונים", free: true, pro: true },
+    { name: "ניהול סמסטרים וקורסים", free: true, pro: true },
+    { name: "אלגוריתם מגן", free: true, pro: true },
+    { name: "סימולציות What-If", free: true, pro: true },
+    { name: "בניית אסטרטגיית ציונים חכמה (AI)", free: false, pro: true, icon: "brain" },
+    { name: "ניתוח אנליטי מתקדם", free: false, pro: true },
+    { name: "דירוג אחוזוני", free: false, pro: true },
+    { name: "ללא פרסומות", free: false, pro: true },
+    { name: "ייצוא PDF", free: false, pro: true },
+  ];
 
   const getTriggerMessage = () => {
     switch (trigger) {
-      case 'semester_limit':
-        return `הגעתם למגבלת ${FREE_TIER_SEMESTER_LIMIT} הסמסטרים בחינם. שדרגו ל-Pro כדי להוסיף עוד!`;
-      case 'feature':
-        return 'פיצ\'ר זה זמין למנויי Pro. שדרגו עכשיו!';
+      case 'smart_strategy':
+        return 'אסטרטגיית הלימוד החכמה זמינה למנויי Pro בלבד 🧠';
+      case 'analytics':
+        return 'ניתוח אנליטי מתקדם זמין למנויי Pro';
+      case 'export':
+        return 'ייצוא PDF זמין למנויי Pro';
       default:
         return 'שדרגו לחוויה המלאה';
     }
@@ -39,13 +41,13 @@ export function PaywallModal({ open, onOpenChange, trigger = 'manual' }: Paywall
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader className="text-center">
-          <div className="mx-auto mb-4 flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
-            <Crown className="w-8 h-8 text-primary" />
+          <div className="mx-auto mb-4 flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-amber-500 to-orange-500">
+            <Crown className="w-8 h-8 text-white" />
           </div>
           <DialogTitle className="text-2xl font-bold">
-            GradeGoal Pro
+            שדרגו ל-GradeGoal Pro
           </DialogTitle>
           <DialogDescription className="text-base mt-2">
             {getTriggerMessage()}
@@ -53,40 +55,75 @@ export function PaywallModal({ open, onOpenChange, trigger = 'manual' }: Paywall
         </DialogHeader>
 
         <div className="space-y-4 mt-6">
-          <div className="space-y-3">
-            {PRO_FEATURES.map((feature, index) => (
-              <div 
-                key={index} 
-                className="flex items-center gap-3"
-                data-testid={`text-feature-${index}`}
-              >
-                <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Check className="w-3 h-3 text-primary" />
+          {/* Free Tier Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">חינם</CardTitle>
+              <CardDescription>התחל לעקוב אחרי הציונים שלך</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold mb-4">₪0<span className="text-sm font-normal text-muted-foreground">/חודש</span></div>
+              <ul className="space-y-2">
+                {features.filter(f => f.free).map((feature) => (
+                  <li key={feature.name} className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 text-primary" />
+                    <span>{feature.name}</span>
+                  </li>
+                ))}
+                {features.filter(f => !f.free).map((feature) => (
+                  <li key={feature.name} className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="w-4 h-4" />
+                    <span className="line-through">{feature.name}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* Pro Tier Card */}
+          <Card className="ring-2 ring-amber-500">
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Crown className="w-5 h-5 text-amber-500" />
+                  <CardTitle className="text-lg">פרו</CardTitle>
                 </div>
-                <span className="text-sm">{feature}</span>
+                <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 border-0">
+                  <Sparkles className="w-3 h-3 me-1" />
+                  מומלץ
+                </Badge>
               </div>
-            ))}
-          </div>
+              <CardDescription>כל הכלים לאופטימיזציה מקסימלית</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold mb-4">
+                ₪19.90<span className="text-sm font-normal text-muted-foreground">/חודש</span>
+              </div>
+              <ul className="space-y-2 mb-6">
+                {features.map((feature) => (
+                  <li key={feature.name} className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 text-primary" />
+                    <span>{feature.name}</span>
+                    {feature.pro && !feature.free && (
+                      feature.icon === "brain" ? (
+                        <Brain className="w-3 h-3 text-amber-500" />
+                      ) : (
+                        <Crown className="w-3 h-3 text-amber-500" />
+                      )
+                    )}
+                  </li>
+                ))}
+              </ul>
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <Button 
-              className="w-full mt-6" 
-              size="lg"
-              onClick={handlePurchase}
-              data-testid="button-buy-pro"
-            >
-              <Crown className="w-4 h-4 me-2" />
-              שדרגו ל-Pro
-            </Button>
-          )}
-
-          <p className="text-xs text-muted-foreground text-center mt-4">
-            ניתן לבטל בכל עת. התשלום מתבצע באופן מאובטח.
-          </p>
+              {paypalClientId ? (
+                <PayPalSubscription clientId={paypalClientId} />
+              ) : (
+                <div className="text-center text-sm text-muted-foreground py-4">
+                  PayPal לא מוגדר
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <Button 

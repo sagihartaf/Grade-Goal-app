@@ -6,7 +6,8 @@ interface ProStatus {
   redirectToCheckout: () => void;
 }
 
-const FREE_TIER_SEMESTER_LIMIT = 2;
+// Unlimited semesters for all users (removed paywall from semester creation)
+const FREE_TIER_SEMESTER_LIMIT = 999;
 const LEMON_SQUEEZY_CHECKOUT_URL = 'https://gradegoal.lemonsqueezy.com/buy/1a922e3f-709c-47a3-9395-7b93865cad80';
 
 export function useProStatus(): ProStatus {
@@ -31,9 +32,9 @@ export function useProStatus(): ProStatus {
   };
 }
 
+// Free users now have unlimited semesters - no paywall on core functionality
 export function canCreateSemester(semesterCount: number, isPro: boolean): boolean {
-  if (isPro) return true;
-  return semesterCount < FREE_TIER_SEMESTER_LIMIT;
+  return true; // Always allow semester creation
 }
 
 export { FREE_TIER_SEMESTER_LIMIT };
