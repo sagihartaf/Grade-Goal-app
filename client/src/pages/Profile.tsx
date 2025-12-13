@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
-import { User, Building2, Target, LogOut, Loader2, GraduationCap, History, Info } from "lucide-react";
+import { User, Building2, Target, LogOut, Loader2, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,8 +29,6 @@ const formSchema = z.object({
   academicInstitution: z.string().optional(),
   degreeName: z.string().optional(),
   targetGpa: z.number().min(0).max(100).optional().nullable(),
-  legacyCredits: z.number().min(0).optional().nullable(),
-  legacyGpa: z.number().min(0).max(100).optional().nullable(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -45,8 +43,6 @@ export default function Profile() {
       academicInstitution: "",
       degreeName: "",
       targetGpa: null,
-      legacyCredits: null,
-      legacyGpa: null,
     },
   });
 
@@ -55,8 +51,6 @@ export default function Profile() {
       form.reset({
         academicInstitution: user.academicInstitution || "",
         degreeName: user.degreeName || "",
-        legacyCredits: user.legacyCredits || null,
-        legacyGpa: user.legacyGpa || null,
         targetGpa: user.targetGpa || null,
       });
     }
@@ -248,81 +242,6 @@ export default function Profile() {
                     </FormItem>
                   )}
                 />
-
-                {/* Legacy Academic Data Section */}
-                <div className="pt-4 border-t space-y-4">
-                  <div className="flex items-start gap-2">
-                    <History className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" />
-                    <div className="flex-1">
-                      <h3 className="font-medium">היסטוריה אקדמית (קיצור דרך)</h3>
-                      <p className="text-sm text-muted-foreground">
-                        אם יש לך קורסים קודמים, הזן את הנתונים כאן כדי לדלג על הזנה ידנית
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-start gap-2">
-                    <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                    <p className="text-xs text-blue-900 dark:text-blue-100">
-                      המערכת תשלב את הנתונים האלה עם קורסים חדשים שתוסיף. שימושי לסטודנטים בשנים מתקדמות.
-                    </p>
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="legacyCredits"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          נקודות זכות שצברת עד היום (ללא פירוט קורסים)
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.5"
-                            min="0"
-                            placeholder="לדוגמה: 40"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                            data-testid="input-legacy-credits"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          סך כל נקודות הזכות מקורסים קודמים
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="legacyGpa"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          ממוצע משוקלל של הנקודות האלו
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max="100"
-                            placeholder="לדוגמה: 85"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                            data-testid="input-legacy-gpa"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          הממוצע שהיה לך בקורסים הקודמים
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
 
                 <Button
                   type="submit"
