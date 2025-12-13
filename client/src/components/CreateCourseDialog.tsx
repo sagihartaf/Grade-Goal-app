@@ -34,6 +34,7 @@ const componentSchema = z.object({
 const formSchema = z.object({
   name: z.string().min(1, "שם הקורס נדרש"),
   credits: z.number().min(0.1, "יש להזין נקודות זכות").max(20),
+  difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
   components: z.array(componentSchema).min(1, "יש להוסיף לפחות מרכיב אחד"),
 }).refine((data) => {
   const totalWeight = data.components.reduce((sum, c) => sum + c.weight, 0);
@@ -51,6 +52,7 @@ interface CreateCourseDialogProps {
   onSubmit: (data: {
     name: string;
     credits: number;
+    difficulty?: "easy" | "medium" | "hard";
     components: Array<{ name: string; weight: number; score?: number | null; isMagen: boolean }>;
   }) => void;
   isPending?: boolean;
@@ -73,6 +75,7 @@ export function CreateCourseDialog({
     defaultValues: {
       name: "",
       credits: 3,
+      difficulty: "medium" as const,
       components: [
         { name: "מבחן סופי", weight: 70, score: null, isMagen: false },
         { name: "תרגילים", weight: 30, score: null, isMagen: false },
@@ -85,6 +88,7 @@ export function CreateCourseDialog({
       form.reset({
         name: editCourse.name,
         credits: editCourse.credits,
+        difficulty: (editCourse.difficulty || "medium") as "easy" | "medium" | "hard",
         components: editCourse.gradeComponents.map(c => ({
           name: c.name,
           weight: c.weight,
@@ -96,6 +100,7 @@ export function CreateCourseDialog({
       form.reset({
         name: "",
         credits: 3,
+        difficulty: "medium" as const,
         components: [
           { name: "מבחן סופי", weight: 70, score: null, isMagen: false },
           { name: "תרגילים", weight: 30, score: null, isMagen: false },
@@ -168,6 +173,63 @@ export function CreateCourseDialog({
                       onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                       data-testid="input-course-credits"
                     />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="difficulty"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>רמת קושי</FormLabel>
+                  <FormControl>
+                    <div className="flex gap-2" data-testid="difficulty-selector">
+                      <Button
+                        type="button"
+                        variant={field.value === "easy" ? "default" : "outline"}
+                        size="sm"
+                        className={cn(
+                          "flex-1",
+                          field.value === "easy" && "bg-green-600 hover:bg-green-700"
+                        )}
+                        onClick={() => field.onChange("easy")}
+                        data-testid="button-difficulty-easy"
+                      >
+                        <span className="text-lg me-1">🟢</span>
+                        קל
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={field.value === "medium" ? "default" : "outline"}
+                        size="sm"
+                        className={cn(
+                          "flex-1",
+                          field.value === "medium" && "bg-amber-600 hover:bg-amber-700"
+                        )}
+                        onClick={() => field.onChange("medium")}
+                        data-testid="button-difficulty-medium"
+                      >
+                        <span className="text-lg me-1">🟡</span>
+                        בינוני
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={field.value === "hard" ? "default" : "outline"}
+                        size="sm"
+                        className={cn(
+                          "flex-1",
+                          field.value === "hard" && "bg-red-600 hover:bg-red-700"
+                        )}
+                        onClick={() => field.onChange("hard")}
+                        data-testid="button-difficulty-hard"
+                      >
+                        <span className="text-lg me-1">🔴</span>
+                        קשה
+                      </Button>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

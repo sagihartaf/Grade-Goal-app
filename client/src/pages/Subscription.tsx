@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Check, Crown, Sparkles } from "lucide-react";
+import { Check, Crown, Brain } from "lucide-react";
 import { PayPalSubscription } from "@/components/PayPalSubscription";
 
 interface SubscriptionData {
@@ -25,6 +25,7 @@ export default function Subscription() {
     { name: "ניהול סמסטרים וקורסים", free: true, pro: true },
     { name: "אלגוריתם מגן", free: true, pro: true },
     { name: "סימולציות What-If", free: true, pro: true },
+    { name: "בניית אסטרטגיית ציונים חכמה (AI)", free: false, pro: true, icon: "brain" },
     { name: "ניתוח אנליטי מתקדם", free: false, pro: true },
     { name: "דירוג אחוזוני", free: false, pro: true },
     { name: "ללא פרסומות", free: false, pro: true },
@@ -107,7 +108,11 @@ export default function Subscription() {
                     <Check className="w-4 h-4 text-primary" />
                     <span>{feature.name}</span>
                     {feature.pro && !feature.free && (
-                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      feature.icon === "brain" ? (
+                        <Brain className="w-3 h-3 text-amber-500" />
+                      ) : (
+                        <Crown className="w-3 h-3 text-amber-500" />
+                      )
                     )}
                   </li>
                 ))}

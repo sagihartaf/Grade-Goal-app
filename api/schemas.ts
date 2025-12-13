@@ -15,6 +15,9 @@ import { z } from "zod";
 // Enum for semester terms
 export const termEnum = pgEnum("term", ["A", "B", "Summer"]);
 
+// Enum for course difficulty (for Smart Strategy algorithm)
+export const difficultyEnum = pgEnum("difficulty", ["easy", "medium", "hard"]);
+
 // Users table - stores user profiles authenticated via Supabase
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -23,6 +26,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   academicInstitution: text("academic_institution"),
+  degreeName: text("degree_name"),
   targetGpa: real("target_gpa"),
   subscriptionTier: varchar("subscription_tier").default("free"),
   stripeCustomerId: varchar("stripe_customer_id"),
@@ -49,6 +53,7 @@ export const courses = pgTable("courses", {
   name: text("name").notNull(),
   credits: real("credits").notNull(),
   targetGrade: real("target_grade"),
+  difficulty: difficultyEnum("difficulty").default("medium"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -136,5 +141,6 @@ export type CourseWithComponents = Course & {
 export type SemesterWithCourses = Semester & {
   courses: CourseWithComponents[];
 };
+
 
 

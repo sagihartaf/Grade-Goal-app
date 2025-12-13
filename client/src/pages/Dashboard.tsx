@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Loader2, FileDown } from "lucide-react";
+import { Plus, Loader2, FileDown, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +12,7 @@ import { BottomNavigation } from "@/components/BottomNavigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PaywallModal } from "@/components/PaywallModal";
 import { AdPlaceholder } from "@/components/AdPlaceholder";
+import { SmartStrategyPlanner } from "@/components/SmartStrategyPlanner";
 import { useProStatus, canCreateSemester } from "@/hooks/useProStatus";
 import { 
   calculateDegreeGpa, 
@@ -35,6 +36,7 @@ export default function Dashboard() {
   const [isCreateSemesterOpen, setIsCreateSemesterOpen] = useState(false);
   const [isCreateCourseOpen, setIsCreateCourseOpen] = useState(false);
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+  const [isSmartStrategyOpen, setIsSmartStrategyOpen] = useState(false);
   const [activeSemesterId, setActiveSemesterId] = useState<string | null>(null);
   const [editingCourse, setEditingCourse] = useState<CourseWithComponents | null>(null);
   const [localGrades, setLocalGrades] = useState<Record<string, number>>({});
@@ -351,6 +353,16 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background pb-32">
       <div className="fixed top-4 start-4 z-50 flex gap-2">
         <ThemeToggle />
+        <Button
+          size="icon"
+          variant={isPro ? "default" : "ghost"}
+          onClick={() => setIsSmartStrategyOpen(true)}
+          data-testid="button-smart-strategy"
+          title="אסטרטגיית לימוד חכמה"
+          className={isPro ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600" : ""}
+        >
+          <Brain className="w-5 h-5" />
+        </Button>
         {isPro && (
           <Button
             size="icon"
@@ -458,6 +470,12 @@ export default function Dashboard() {
         open={isPaywallOpen}
         onOpenChange={setIsPaywallOpen}
         trigger="semester_limit"
+      />
+
+      <SmartStrategyPlanner
+        open={isSmartStrategyOpen}
+        onOpenChange={setIsSmartStrategyOpen}
+        semesters={effectiveSemesters}
       />
     </div>
   );

@@ -41,7 +41,7 @@ export interface IStorage {
   // Course operations
   getCourse(id: string): Promise<Course | undefined>;
   createCourse(semesterId: string, data: InsertCourse, components: InsertGradeComponent[]): Promise<Course>;
-  updateCourse(id: string, data: { name: string; credits: number }, components: InsertGradeComponent[]): Promise<Course | undefined>;
+  updateCourse(id: string, data: { name: string; credits: number; difficulty?: "easy" | "medium" | "hard" }, components: InsertGradeComponent[]): Promise<Course | undefined>;
   updateCourseTargetGrade(id: string, targetGrade: number | null): Promise<Course | undefined>;
   deleteCourse(id: string): Promise<void>;
   
@@ -271,13 +271,18 @@ export class DatabaseStorage implements IStorage {
 
   async updateCourse(
     id: string,
-    data: { name: string; credits: number },
+    data: { name: string; credits: number; difficulty?: "easy" | "medium" | "hard" },
     components: InsertGradeComponent[]
   ): Promise<Course | undefined> {
     // Update course info
+    const updateData: any = { name: data.name, credits: data.credits };
+    if (data.difficulty !== undefined) {
+      updateData.difficulty = data.difficulty;
+    }
+    
     const [course] = await db
       .update(courses)
-      .set({ name: data.name, credits: data.credits })
+      .set(updateData)
       .where(eq(courses.id, id))
       .returning();
     

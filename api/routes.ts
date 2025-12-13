@@ -23,6 +23,7 @@ export function registerRoutes(app: Express): void {
       
       const schema = z.object({
         academicInstitution: z.string().optional(),
+        degreeName: z.string().optional(),
         targetGpa: z.number().min(0).max(100).optional().nullable(),
       });
 
@@ -95,6 +96,7 @@ export function registerRoutes(app: Express): void {
         semesterId: z.string(),
         name: z.string().min(1),
         credits: z.number().min(0.1).max(20),
+        difficulty: z.enum(["easy", "medium", "hard"]).optional(),
         components: z.array(z.object({
           name: z.string().min(1),
           weight: z.number().min(0).max(100),
@@ -113,7 +115,12 @@ export function registerRoutes(app: Express): void {
 
       const course = await storage.createCourse(
         data.semesterId,
-        { semesterId: data.semesterId, name: data.name, credits: data.credits },
+        { 
+          semesterId: data.semesterId, 
+          name: data.name, 
+          credits: data.credits,
+          difficulty: data.difficulty || "medium"
+        },
         data.components.map((c) => ({
           courseId: "", // Will be set in storage
           name: c.name,
@@ -139,6 +146,7 @@ export function registerRoutes(app: Express): void {
       const schema = z.object({
         name: z.string().min(1),
         credits: z.number().min(0.1).max(20),
+        difficulty: z.enum(["easy", "medium", "hard"]).optional(),
         components: z.array(z.object({
           name: z.string().min(1),
           weight: z.number().min(0).max(100),
@@ -162,7 +170,11 @@ export function registerRoutes(app: Express): void {
 
       const updatedCourse = await storage.updateCourse(
         courseId,
-        { name: data.name, credits: data.credits },
+        { 
+          name: data.name, 
+          credits: data.credits,
+          difficulty: data.difficulty
+        },
         data.components.map((c) => ({
           courseId: courseId,
           name: c.name,

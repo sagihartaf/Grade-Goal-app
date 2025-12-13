@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
-import { User, Building2, Target, LogOut, Loader2 } from "lucide-react";
+import { User, Building2, Target, LogOut, Loader2, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 const formSchema = z.object({
   academicInstitution: z.string().optional(),
+  degreeName: z.string().optional(),
   targetGpa: z.number().min(0).max(100).optional().nullable(),
 });
 
@@ -40,6 +41,7 @@ export default function Profile() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       academicInstitution: "",
+      degreeName: "",
       targetGpa: null,
     },
   });
@@ -48,6 +50,7 @@ export default function Profile() {
     if (user) {
       form.reset({
         academicInstitution: user.academicInstitution || "",
+        degreeName: user.degreeName || "",
         targetGpa: user.targetGpa || null,
       });
     }
@@ -181,6 +184,30 @@ export default function Profile() {
                       </FormControl>
                       <FormDescription>
                         המוסד בו אתה לומד
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="degreeName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        <GraduationCap className="w-4 h-4" />
+                        שם התואר
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="לדוגמה: הנדסת תעשייה וניהול"
+                          {...field}
+                          data-testid="input-degree-name"
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        התואר או התכנית הלימודית שלך
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
