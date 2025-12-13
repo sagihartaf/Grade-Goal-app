@@ -31,16 +31,40 @@ export function registerRoutes(app: Express): void {
 
       const data = schema.parse(req.body);
       
-      // Sanitize data: convert undefined to null for nullable fields
-      const sanitizedData = {
-        academicInstitution: data.academicInstitution ?? undefined,
-        degreeName: data.degreeName ?? undefined,
-        targetGpa: data.targetGpa ?? null,
-        legacyCredits: data.legacyCredits ?? null,
-        legacyGpa: data.legacyGpa ?? null,
-      };
+      // Build partial update object: only include fields explicitly present in request
+      // This ensures undefined/missing fields are ignored, leaving existing DB values untouched
+      // This is critical for NOT NULL fields (legacyCredits, legacyGpa) which cannot be set to null
+      const updateData: Partial<{
+        academicInstitution: string;
+        degreeName: string;
+        targetGpa: number | null;
+        legacyCredits: number;
+        legacyGpa: number;
+      }> = {};
       
-      const user = await storage.updateUserProfile(userId, sanitizedData);
+      // Optional string fields: include if present in request (even if empty string)
+      if ('academicInstitution' in req.body) {
+        updateData.academicInstitution = data.academicInstitution;
+      }
+      if ('degreeName' in req.body) {
+        updateData.degreeName = data.degreeName;
+      }
+      
+      // Nullable field: include if present (allows null to clear the value)
+      if ('targetGpa' in req.body) {
+        updateData.targetGpa = data.targetGpa ?? null;
+      }
+      
+      // NOT NULL fields: only update if explicitly provided with a valid number value
+      // Skip if missing, null, or undefined to avoid violating NOT NULL constraint
+      if ('legacyCredits' in req.body && data.legacyCredits !== null && data.legacyCredits !== undefined) {
+        updateData.legacyCredits = data.legacyCredits;
+      }
+      if ('legacyGpa' in req.body && data.legacyGpa !== null && data.legacyGpa !== undefined) {
+        updateData.legacyGpa = data.legacyGpa;
+      }
+      
+      const user = await storage.updateUserProfile(userId, updateData);
       res.json(user);
     } catch (error) {
       console.error("Error updating profile:", error);
