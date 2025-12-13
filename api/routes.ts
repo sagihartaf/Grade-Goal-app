@@ -25,6 +25,8 @@ export function registerRoutes(app: Express): void {
         academicInstitution: z.string().optional(),
         degreeName: z.string().optional(),
         targetGpa: z.number().min(0).max(100).optional().nullable(),
+        legacyCredits: z.number().min(0).optional().nullable(),
+        legacyGpa: z.number().min(0).max(100).optional().nullable(),
       });
 
       const data = schema.parse(req.body);
@@ -55,7 +57,10 @@ export function registerRoutes(app: Express): void {
       
       const schema = z.object({
         academicYear: z.number().min(1).max(7),
-        term: z.enum(["A", "B", "Summer"]),
+        term: z.enum(["A", "B", "Summer", "Yearly"]),
+        legacyCredits: z.number().min(0).optional().default(0),
+        legacyGpa: z.number().min(0).max(100).optional().default(0),
+        isLegacyVisible: z.boolean().optional().default(false),
       });
 
       const data = schema.parse(req.body);

@@ -62,7 +62,7 @@ export function calculateCourseGrade(components: GradeComponent[]): number | nul
   return calculateCourseGradeWithMagenInfo(components).grade;
 }
 
-// Calculate semester GPA
+// Calculate semester GPA (standard - no legacy data)
 export function calculateSemesterGpa(courses: CourseWithComponents[]): number | null {
   const gradedCourses = courses.filter((course) => {
     const grade = calculateCourseGrade(course.gradeComponents);
@@ -80,10 +80,85 @@ export function calculateSemesterGpa(courses: CourseWithComponents[]): number | 
   return totalCredits > 0 ? weightedSum / totalCredits : null;
 }
 
-// Calculate overall degree GPA
-export function calculateDegreeGpa(semesters: SemesterWithCourses[]): number | null {
-  const allCourses = semesters.flatMap((s) => s.courses);
-  return calculateSemesterGpa(allCourses);
+// Calculate hybrid semester GPA (combines legacy bulk data + individual courses)
+export function calculateHybridSemesterGpa(
+  courses: CourseWithComponents[],
+  legacyCredits: number = 0,
+  legacyGpa: number = 0
+): number | null {
+  // Calculate GPA from individual courses
+  const gradedCourses = courses.filter((course) => {
+    const grade = calculateCourseGrade(course.gradeComponents);
+    return grade !== null;
+  });
+
+  const actualCredits = gradedCourses.reduce((sum, c) => sum + c.credits, 0);
+  const actualWeightedSum = gradedCourses.reduce((sum, course) => {
+    const grade = calculateCourseGrade(course.gradeComponents) ?? 0;
+    return sum + grade * course.credits;
+  }, 0);
+
+  // If no legacy data and no graded courses, return null
+  if (legacyCredits === 0 && actualCredits === 0) return null;
+
+  // If only legacy data exists
+  if (legacyCredits > 0 && actualCredits === 0) {
+    return legacyGpa;
+  }
+
+  // If only actual courses exist
+  if (legacyCredits === 0 && actualCredits > 0) {
+    return actualWeightedSum / actualCredits;
+  }
+
+  // Combine legacy data with actual courses (weighted average)
+  const totalCredits = legacyCredits + actualCredits;
+  const legacyWeightedSum = legacyGpa * legacyCredits;
+  const totalWeightedSum = legacyWeightedSum + actualWeightedSum;
+
+  return totalWeightedSum / totalCredits;
+}
+
+// Calculate overall degree GPA (with optional global legacy data for backward compatibility)
+// New approach: Aggregates from per-semester hybrid GPAs
+export function calculateDegreeGpa(
+  semesters: SemesterWithCourses[],
+  globalLegacyCredits: number = 0,
+  globalLegacyGpa: number = 0
+): number | null {
+  let totalCredits = 0;
+  let totalWeightedSum = 0;
+
+  // Calculate contribution from each semester (including per-semester legacy data)
+  for (const semester of semesters) {
+    const semesterLegacyCredits = semester.legacyCredits || 0;
+    const semesterLegacyGpa = semester.legacyGpa || 0;
+    
+    // Calculate hybrid GPA for this semester
+    const hybridGpa = calculateHybridSemesterGpa(
+      semester.courses,
+      semesterLegacyCredits,
+      semesterLegacyGpa
+    );
+
+    if (hybridGpa !== null) {
+      // Get total credits for this semester (legacy + actual)
+      const gradedCourses = semester.courses.filter(c => calculateCourseGrade(c.gradeComponents) !== null);
+      const actualCredits = gradedCourses.reduce((sum, c) => sum + c.credits, 0);
+      const semesterTotalCredits = semesterLegacyCredits + actualCredits;
+
+      totalCredits += semesterTotalCredits;
+      totalWeightedSum += hybridGpa * semesterTotalCredits;
+    }
+  }
+
+  // Add global legacy data (for backward compatibility with old user data)
+  if (globalLegacyCredits > 0) {
+    totalCredits += globalLegacyCredits;
+    totalWeightedSum += globalLegacyGpa * globalLegacyCredits;
+  }
+
+  return totalCredits > 0 ? totalWeightedSum / totalCredits : null;
 }
 
 // Calculate GPA for a specific year
@@ -100,16 +175,20 @@ export function formatGpa(gpa: number | null): string {
 }
 
 // Get Hebrew term name
-export function getTermName(term: "A" | "B" | "Summer"): string {
+export function getTermName(term: "A" | "B" | "Summer" | "Yearly"): string {
   const termNames: Record<string, string> = {
     A: "א׳",
     B: "ב׳",
     Summer: "קיץ",
+    Yearly: "שנתי",
   };
   return termNames[term] || term;
 }
 
 // Generate semester display name
-export function getSemesterDisplayName(academicYear: number, term: "A" | "B" | "Summer"): string {
+export function getSemesterDisplayName(academicYear: number, term: "A" | "B" | "Summer" | "Yearly"): string {
+  if (term === "Yearly") {
+    return `שנה ${academicYear}`;
+  }
   return `שנה ${academicYear} - סמסטר ${getTermName(term)}`;
 }

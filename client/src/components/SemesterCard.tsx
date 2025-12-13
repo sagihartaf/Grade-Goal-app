@@ -1,11 +1,11 @@
 import { useState, useMemo } from "react";
-import { ChevronDown, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Trash2, History } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CourseRow } from "./CourseRow";
-import { calculateSemesterGpa, formatGpa, getTermName } from "@/lib/gpaCalculations";
+import { calculateSemesterGpa, calculateHybridSemesterGpa, formatGpa, getTermName, calculateCourseGrade } from "@/lib/gpaCalculations";
 import type { SemesterWithCourses, CourseWithComponents } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
@@ -33,14 +33,25 @@ export function SemesterCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedCourses, setExpandedCourses] = useState<Set<string>>(new Set());
 
+  const legacyCredits = semester.legacyCredits || 0;
+  const legacyGpa = semester.legacyGpa || 0;
+  const isHybridSemester = semester.isLegacyVisible || legacyCredits > 0;
+
   const semesterGpa = useMemo(
-    () => calculateSemesterGpa(semester.courses),
+    () => isHybridSemester 
+      ? calculateHybridSemesterGpa(semester.courses, legacyCredits, legacyGpa)
+      : calculateSemesterGpa(semester.courses),
+    [semester.courses, isHybridSemester, legacyCredits, legacyGpa]
+  );
+
+  const actualCredits = useMemo(
+    () => semester.courses.reduce((sum, c) => sum + c.credits, 0),
     [semester.courses]
   );
 
   const totalCredits = useMemo(
-    () => semester.courses.reduce((sum, c) => sum + c.credits, 0),
-    [semester.courses]
+    () => legacyCredits + actualCredits,
+    [legacyCredits, actualCredits]
   );
 
   const toggleCourse = (courseId: string) => {
@@ -86,12 +97,21 @@ export function SemesterCard({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-lg">{semester.name}</h3>
+                {isHybridSemester && (
+                  <Badge variant="outline" className="text-xs bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-950 dark:border-amber-700 dark:text-amber-400">
+                    <History className="w-3 h-3 me-1" />
+                    שנה שהסתיימה
+                  </Badge>
+                )}
                 <Badge variant="secondary" className="text-xs">
                   {totalCredits} נ״ז
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
-                {semester.courses.length} קורסים
+                {legacyCredits > 0 && (
+                  <span>{legacyCredits} נ״ז מקוצרות + </span>
+                )}
+                {semester.courses.length} קורסים מפורטים
               </p>
             </div>
 

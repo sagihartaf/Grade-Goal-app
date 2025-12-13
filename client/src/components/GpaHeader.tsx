@@ -26,6 +26,8 @@ interface GpaHeaderProps {
   currentFilter?: FilterScope;
   institutionStats?: InstitutionStats | null;
   semesters?: SemesterWithCourses[];
+  legacyCredits?: number;
+  legacyGpa?: number;
 }
 
 export function GpaHeader({
@@ -38,13 +40,15 @@ export function GpaHeader({
   currentFilter = "degree",
   institutionStats,
   semesters,
+  legacyCredits = 0,
+  legacyGpa = 0,
 }: GpaHeaderProps) {
   const resolvedDegreeGpa = useMemo(() => {
     if (semesters) {
-      return calculateDegreeGpa(semesters);
+      return calculateDegreeGpa(semesters, legacyCredits, legacyGpa);
     }
     return degreeGpa ?? null;
-  }, [degreeGpa, semesters]);
+  }, [degreeGpa, semesters, legacyCredits, legacyGpa]);
 
   const getDisplayGpa = () => {
     switch (currentFilter) {

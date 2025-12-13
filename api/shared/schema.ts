@@ -13,7 +13,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enum for semester terms
-export const termEnum = pgEnum("term", ["A", "B", "Summer"]);
+export const termEnum = pgEnum("term", ["A", "B", "Summer", "Yearly"]);
 
 // Enum for course difficulty (for Smart Strategy algorithm)
 export const difficultyEnum = pgEnum("difficulty", ["easy", "medium", "hard"]);
@@ -28,6 +28,8 @@ export const users = pgTable("users", {
   academicInstitution: text("academic_institution"),
   degreeName: text("degree_name"),
   targetGpa: real("target_gpa"),
+  legacyCredits: real("legacy_credits").default(0).notNull(),
+  legacyGpa: real("legacy_gpa").default(0).notNull(),
   subscriptionTier: varchar("subscription_tier").default("free"),
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
@@ -43,6 +45,9 @@ export const semesters = pgTable("semesters", {
   term: termEnum("term").notNull(),
   name: text("name").notNull(),
   isActive: boolean("is_active").default(true),
+  legacyCredits: real("legacy_credits").default(0).notNull(),
+  legacyGpa: real("legacy_gpa").default(0).notNull(),
+  isLegacyVisible: boolean("is_legacy_visible").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

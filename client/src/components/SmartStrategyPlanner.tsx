@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, TrendingUp, AlertCircle, Crown, Brain } from "lucide-react";
 import { calculateSmartStrategy, getFutureCourses, getCompletedCourses } from "@/lib/smartStrategy";
 import { calculateDegreeGpa } from "@/lib/gpaCalculations";
-import type { SemesterWithCourses, CourseWithComponents } from "@shared/schema";
+import type { SemesterWithCourses, CourseWithComponents, User } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { useProStatus } from "@/hooks/useProStatus";
 import { PaywallModal } from "./PaywallModal";
@@ -23,12 +23,14 @@ interface SmartStrategyPlannerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   semesters: SemesterWithCourses[];
+  user?: User | null;
 }
 
 export function SmartStrategyPlanner({
   open,
   onOpenChange,
   semesters,
+  user,
 }: SmartStrategyPlannerProps) {
   const { isPro } = useProStatus();
   const [targetGPA, setTargetGPA] = useState<number>(90);
@@ -36,16 +38,25 @@ export function SmartStrategyPlanner({
   const [strategyResult, setStrategyResult] = useState<any>(null);
   const [showPaywall, setShowPaywall] = useState(false);
 
-  // Calculate current stats
-  const currentGPA = calculateDegreeGpa(semesters);
+  // Extract global legacy data (backward compatibility)
+  const globalLegacyCredits = user?.legacyCredits || 0;
+  const globalLegacyGpa = user?.legacyGpa || 0;
+
+  // Calculate per-semester legacy data
+  const perSemesterLegacyCredits = semesters.reduce((sum, sem) => sum + (sem.legacyCredits || 0), 0);
+  
+  // Calculate current stats (including ALL legacy data: global + per-semester)
+  const currentGPA = calculateDegreeGpa(semesters, globalLegacyCredits, globalLegacyGpa);
   
   const allCourses = semesters.flatMap(semester => semester.courses);
   const futureCourses = getFutureCourses(allCourses);
   const completedCourses = getCompletedCourses(allCourses);
   
-  const completedCredits = allCourses
+  const actualCompletedCredits = allCourses
     .filter(course => course.gradeComponents.some(c => c.score !== null))
     .reduce((sum, course) => sum + course.credits, 0);
+  
+  const completedCredits = globalLegacyCredits + perSemesterLegacyCredits + actualCompletedCredits;
 
   const difficultyColors = {
     easy: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-300 dark:border-green-700",

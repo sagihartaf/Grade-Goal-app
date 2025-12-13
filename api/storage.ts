@@ -35,7 +35,7 @@ export interface IStorage {
   // Semester operations
   getSemestersByUserId(userId: string): Promise<SemesterWithCourses[]>;
   getSemester(id: string): Promise<Semester | undefined>;
-  createSemester(userId: string, data: { academicYear: number; term: "A" | "B" | "Summer" }): Promise<Semester>;
+  createSemester(userId: string, data: { academicYear: number; term: "A" | "B" | "Summer" | "Yearly"; legacyCredits?: number; legacyGpa?: number; isLegacyVisible?: boolean }): Promise<Semester>;
   deleteSemester(id: string): Promise<void>;
   
   // Course operations
@@ -51,12 +51,18 @@ export interface IStorage {
 }
 
 // Helper function for semester display name (duplicated here to avoid client import issues)
-function getSemesterName(academicYear: number, term: "A" | "B" | "Summer"): string {
+function getSemesterName(academicYear: number, term: "A" | "B" | "Summer" | "Yearly"): string {
   const termNames: Record<string, string> = {
     A: "א׳",
     B: "ב׳",
     Summer: "קיץ",
+    Yearly: "שנתי",
   };
+  
+  if (term === "Yearly") {
+    return `שנה ${academicYear}`;
+  }
+  
   return `שנה ${academicYear} - סמסטר ${termNames[term] || term}`;
 }
 
@@ -221,7 +227,7 @@ export class DatabaseStorage implements IStorage {
     return semester;
   }
 
-  async createSemester(userId: string, data: { academicYear: number; term: "A" | "B" | "Summer" }): Promise<Semester> {
+  async createSemester(userId: string, data: { academicYear: number; term: "A" | "B" | "Summer" | "Yearly"; legacyCredits?: number; legacyGpa?: number; isLegacyVisible?: boolean }): Promise<Semester> {
     const name = getSemesterName(data.academicYear, data.term);
     const [semester] = await db
       .insert(semesters)
@@ -230,6 +236,9 @@ export class DatabaseStorage implements IStorage {
         term: data.term,
         userId,
         name,
+        legacyCredits: data.legacyCredits || 0,
+        legacyGpa: data.legacyGpa || 0,
+        isLegacyVisible: data.isLegacyVisible || false,
       })
       .returning();
     return semester;

@@ -14,10 +14,18 @@ const semesterTermNames: Record<string, string> = {
 };
 
 export function PrintableReport({ semesters, user }: PrintableReportProps) {
-  const overallGpa = calculateDegreeGpa(semesters);
-  const totalCredits = semesters.reduce((sum, sem) => 
+  // Safety guard: Return null if user is not available
+  if (!user) return null;
+
+  // Handle legacy data with defaults
+  const legacyCredits = user.legacyCredits || 0;
+  const legacyGpa = user.legacyGpa || 0;
+  const overallGpa = calculateDegreeGpa(semesters, legacyCredits, legacyGpa);
+  const actualCredits = semesters.reduce((sum, sem) => 
     sum + sem.courses.reduce((cSum, c) => cSum + c.credits, 0), 0
   );
+  const totalCredits = legacyCredits + actualCredits;
+  
   const totalCourses = semesters.reduce((sum, sem) => sum + sem.courses.length, 0);
 
   const sortedSemesters = [...semesters].sort((a, b) => {
@@ -293,10 +301,13 @@ export function openPrintReport(semesters: SemesterWithCourses[], user: User | n
     return;
   }
 
-  const overallGpa = calculateDegreeGpa(semesters);
-  const totalCredits = semesters.reduce((sum, sem) => 
+  const legacyCredits = user?.legacyCredits || 0;
+  const legacyGpa = user?.legacyGpa || 0;
+  const overallGpa = calculateDegreeGpa(semesters, legacyCredits, legacyGpa);
+  const actualCredits = semesters.reduce((sum, sem) => 
     sum + sem.courses.reduce((cSum, c) => cSum + c.credits, 0), 0
   );
+  const totalCredits = legacyCredits + actualCredits;
   const totalCourses = semesters.reduce((sum, sem) => sum + sem.courses.length, 0);
 
   const sortedSemesters = [...semesters].sort((a, b) => {

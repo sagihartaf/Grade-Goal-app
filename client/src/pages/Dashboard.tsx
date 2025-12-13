@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Loader2, FileDown, Brain } from "lucide-react";
+import { Plus, Loader2, FileDown, Brain, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [selectedSemesterId, setSelectedSemesterId] = useState<string | null>(null);
   
   const [isCreateSemesterOpen, setIsCreateSemesterOpen] = useState(false);
+  const [semesterDialogMode, setSemesterDialogMode] = useState<"regular" | "completedYear">("regular");
   const [isCreateCourseOpen, setIsCreateCourseOpen] = useState(false);
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [isSmartStrategyOpen, setIsSmartStrategyOpen] = useState(false);
@@ -92,8 +93,12 @@ export default function Dashboard() {
   }, [effectiveSemesters]);
 
   const degreeGpa = useMemo(
-    () => calculateDegreeGpa(effectiveSemesters),
-    [effectiveSemesters]
+    () => calculateDegreeGpa(
+      effectiveSemesters,
+      user?.legacyCredits || 0,
+      user?.legacyGpa || 0
+    ),
+    [effectiveSemesters, user?.legacyCredits, user?.legacyGpa]
   );
 
   const yearGpa = useMemo(
@@ -301,6 +306,16 @@ export default function Dashboard() {
 
   const handleAddSemesterClick = useCallback(() => {
     if (canCreateSemester(semesters.length, isPro)) {
+      setSemesterDialogMode("regular");
+      setIsCreateSemesterOpen(true);
+    } else {
+      setIsPaywallOpen(true);
+    }
+  }, [semesters.length, isPro]);
+
+  const handleAddCompletedYearClick = useCallback(() => {
+    if (canCreateSemester(semesters.length, isPro)) {
+      setSemesterDialogMode("completedYear");
       setIsCreateSemesterOpen(true);
     } else {
       setIsPaywallOpen(true);
@@ -386,6 +401,8 @@ export default function Dashboard() {
         onFilterChange={handleFilterChange}
         institutionStats={institutionStats}
         semesters={effectiveSemesters}
+        legacyCredits={user?.legacyCredits || 0}
+        legacyGpa={user?.legacyGpa || 0}
       />
 
       <div className="py-3">
@@ -402,13 +419,25 @@ export default function Dashboard() {
             <p className="text-muted-foreground mb-6">
               התחל להוסיף את הסמסטרים והקורסים שלך
             </p>
-            <Button
-              onClick={handleAddSemesterClick}
-              data-testid="button-add-first-semester"
-            >
-              <Plus className="w-4 h-4 ms-2" />
-              הוסף סמסטר ראשון
-            </Button>
+            <div className="flex flex-col gap-3 items-center">
+              <Button
+                onClick={handleAddSemesterClick}
+                data-testid="button-add-first-semester"
+                className="min-w-[200px]"
+              >
+                <Plus className="w-4 h-4 ms-2" />
+                הוסף סמסטר ראשון
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleAddCompletedYearClick}
+                data-testid="button-add-completed-year-empty"
+                className="min-w-[200px] border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
+              >
+                <History className="w-4 h-4 ms-2" />
+                הוסף שנה שהסתיימה
+              </Button>
+            </div>
           </div>
         ) : (
           <>
@@ -426,15 +455,25 @@ export default function Dashboard() {
               />
             ))}
 
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleAddSemesterClick}
-              data-testid="button-add-semester"
-            >
-              <Plus className="w-4 h-4 ms-2" />
-              הוסף סמסטר
-            </Button>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                onClick={handleAddSemesterClick}
+                data-testid="button-add-semester"
+              >
+                <Plus className="w-4 h-4 ms-2" />
+                הוסף סמסטר
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleAddCompletedYearClick}
+                data-testid="button-add-completed-year"
+                className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
+              >
+                <History className="w-4 h-4 ms-2" />
+                הוסף שנה שהסתיימה
+              </Button>
+            </div>
           </>
         )}
       </main>
@@ -446,6 +485,7 @@ export default function Dashboard() {
         onOpenChange={setIsCreateSemesterOpen}
         onSubmit={(data) => createSemesterMutation.mutate(data)}
         isPending={createSemesterMutation.isPending}
+        mode={semesterDialogMode}
       />
 
       <CreateCourseDialog
@@ -476,6 +516,7 @@ export default function Dashboard() {
         open={isSmartStrategyOpen}
         onOpenChange={setIsSmartStrategyOpen}
         semesters={effectiveSemesters}
+        user={user}
       />
     </div>
   );
