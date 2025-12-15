@@ -6,6 +6,8 @@ import { BottomNavigation } from "@/components/BottomNavigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Check, Crown, Brain } from "lucide-react";
 import { PayPalSubscription } from "@/components/PayPalSubscription";
+import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 
 interface SubscriptionData {
   subscriptionTier: string;
@@ -16,6 +18,7 @@ export default function Subscription() {
   const { data: subscription, isLoading } = useQuery<SubscriptionData>({
     queryKey: ["/api/subscription"],
   });
+  const [, navigate] = useLocation();
 
   const isPro = subscription?.subscriptionTier === "pro";
   const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
@@ -35,8 +38,14 @@ export default function Subscription() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background pb-32" dir="rtl">
-        <div className="fixed top-4 start-4 z-50">
+        <div className="fixed top-4 start-4 z-50 flex gap-2">
           <ThemeToggle />
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/about")}
+          >
+            אודות
+          </Button>
         </div>
         <div className="max-w-2xl mx-auto px-4 py-6">
           <Skeleton className="h-8 w-32 mb-6" />
@@ -52,8 +61,14 @@ export default function Subscription() {
 
   return (
     <div className="min-h-screen bg-background pb-32" dir="rtl">
-      <div className="fixed top-4 start-4 z-50">
+      <div className="fixed top-4 start-4 z-50 flex gap-2">
         <ThemeToggle />
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/about")}
+        >
+          אודות
+        </Button>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6">

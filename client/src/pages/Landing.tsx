@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Footer } from "@/components/Footer";
 import { supabase } from "@/lib/supabaseClient";
 import { useLocation } from "wouter";
 
@@ -75,6 +76,12 @@ export default function Landing() {
             <span className="text-xl font-bold">GradeGoal</span>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/about")}
+            >
+              אודות
+            </Button>
             <ThemeToggle />
             <Button
               onClick={() => {
@@ -221,19 +228,7 @@ export default function Landing() {
         </section>
       </main>
 
-      <footer className="border-t border-border py-8 px-4">
-        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} GradeGoal. כל הזכויות שמורות.</p>
-          <div className="flex items-center gap-4">
-            <a href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
-              Privacy Policy
-            </a>
-            <a href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">
-              Terms of Service
-            </a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

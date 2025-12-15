@@ -13,6 +13,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { PaywallModal } from "@/components/PaywallModal";
 import { AdPlaceholder } from "@/components/AdPlaceholder";
 import { SmartStrategyPlanner } from "@/components/SmartStrategyPlanner";
+import { useLocation } from "wouter";
 import { useProStatus, canCreateSemester } from "@/hooks/useProStatus";
 import { 
   calculateDegreeGpa, 
@@ -29,6 +30,7 @@ type FilterScope = "degree" | "year" | "semester";
 export default function Dashboard() {
   const { toast } = useToast();
   const { isPro } = useProStatus();
+  const [, navigate] = useLocation();
   const [currentFilter, setCurrentFilter] = useState<FilterScope>("degree");
   const [selectedYear, setSelectedYear] = useState<number>(1);
   const [selectedSemesterId, setSelectedSemesterId] = useState<string | null>(null);
@@ -380,6 +382,12 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background pb-32">
       <div className="fixed top-4 start-4 z-50 flex gap-2">
         <ThemeToggle />
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/about")}
+        >
+          אודות
+        </Button>
         <Button
           size="icon"
           variant={isPro ? "default" : "ghost"}

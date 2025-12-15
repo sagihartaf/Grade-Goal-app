@@ -24,6 +24,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { supabase } from "@/lib/supabaseClient";
+import { useLocation } from "wouter";
 
 const formSchema = z.object({
   academicInstitution: z.string().optional(),
@@ -36,6 +37,7 @@ type FormData = z.infer<typeof formSchema>;
 export default function Profile() {
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -120,7 +122,15 @@ export default function Profile() {
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <h1 className="text-xl font-bold">פרופיל</h1>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/about")}
+            >
+              אודות
+            </Button>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 

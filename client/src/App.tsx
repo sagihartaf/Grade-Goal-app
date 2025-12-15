@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { StickyBottomAd } from "@/components/AdPlaceholder";
+import { Footer } from "@/components/Footer";
 import { Analytics } from "@vercel/analytics/react";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
@@ -14,6 +15,7 @@ import Profile from "@/pages/Profile";
 import Subscription from "@/pages/Subscription";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsOfService from "@/pages/TermsOfService";
+import About from "@/pages/About";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedRoutes() {
@@ -21,6 +23,7 @@ function AuthenticatedRoutes() {
     <>
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/about" component={About} />
         <Route path="/analytics" component={AnalyticsPage} />
         <Route path="/profile" component={Profile} />
         <Route path="/subscription" component={Subscription} />
@@ -40,6 +43,7 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/about" component={About} />
         <Route path="/privacy" component={PrivacyPolicy} />
         <Route path="/terms" component={TermsOfService} />
         <Route component={NotFound} />
