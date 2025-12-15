@@ -38,14 +38,22 @@ export default function Subscription() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background pb-32" dir="rtl">
-        <div className="fixed top-4 start-4 z-50 flex gap-2">
-          <ThemeToggle />
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/about")}
-          >
-            אודות
-          </Button>
+        <div className="fixed top-4 start-4 z-50 flex items-center justify-between gap-4 max-w-[calc(100%-2rem)]">
+          {/* Right side (RTL): theme toggle */}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+          </div>
+
+          {/* Left side (RTL): About only */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/about")}
+            >
+              אודות
+            </Button>
+          </div>
         </div>
         <div className="max-w-2xl mx-auto px-4 py-6">
           <Skeleton className="h-8 w-32 mb-6" />
@@ -61,14 +69,22 @@ export default function Subscription() {
 
   return (
     <div className="min-h-screen bg-background pb-32" dir="rtl">
-      <div className="fixed top-4 start-4 z-50 flex gap-2">
-        <ThemeToggle />
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/about")}
-        >
-          אודות
-        </Button>
+      <div className="fixed top-4 start-4 z-50 flex items-center justify-between gap-4 max-w-[calc(100%-2rem)]">
+        {/* Right side (RTL): theme toggle */}
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+        </div>
+
+        {/* Left side (RTL): About only */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/about")}
+          >
+            אודות
+          </Button>
+        </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6">

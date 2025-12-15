@@ -121,15 +121,21 @@ export default function Profile() {
     <div className="min-h-screen bg-background pb-32">
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <h1 className="text-xl font-bold">פרופיל</h1>
+          {/* Right side (RTL): page title + theme */}
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold">פרופיל</h1>
+            <ThemeToggle />
+          </div>
+
+          {/* Left side (RTL): About only */}
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
+              size="sm"
               onClick={() => navigate("/about")}
             >
               אודות
             </Button>
-            <ThemeToggle />
           </div>
         </div>
       </header>

@@ -380,14 +380,8 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background pb-32">
-      <div className="fixed top-4 start-4 z-50 flex gap-2">
+      <div className="fixed top-4 start-4 z-50 flex items-center gap-2">
         <ThemeToggle />
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/about")}
-        >
-          אודות
-        </Button>
         <Button
           size="icon"
           variant={isPro ? "default" : "ghost"}
