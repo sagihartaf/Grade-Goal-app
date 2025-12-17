@@ -47,7 +47,7 @@ export interface IStorage {
   
   // Grade component operations
   getGradeComponent(id: string): Promise<GradeComponent | undefined>;
-  updateGradeComponentScore(id: string, score: number): Promise<GradeComponent | undefined>;
+  updateGradeComponentScore(id: string, score: number | null): Promise<GradeComponent | undefined>;
 }
 
 // Helper function for semester display name (duplicated here to avoid client import issues)
@@ -332,7 +332,7 @@ export class DatabaseStorage implements IStorage {
     return component;
   }
 
-  async updateGradeComponentScore(id: string, score: number): Promise<GradeComponent | undefined> {
+  async updateGradeComponentScore(id: string, score: number | null): Promise<GradeComponent | undefined> {
     const [component] = await db
       .update(gradeComponents)
       .set({ score })

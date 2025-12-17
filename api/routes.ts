@@ -311,7 +311,8 @@ export function registerRoutes(app: Express): void {
       const componentId = req.params.id;
       
       const schema = z.object({
-        score: z.number().min(0).max(100),
+        // Allow null to support clearing a grade
+        score: z.number().min(0).max(100).nullable(),
       });
 
       const data = schema.parse(req.body);

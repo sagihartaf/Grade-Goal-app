@@ -171,11 +171,12 @@ export default function Dashboard() {
   });
 
   const updateScoreMutation = useMutation({
-    mutationFn: async ({ componentId, score }: { componentId: string; score: number }) => {
+    mutationFn: async ({ componentId, score }: { componentId: string; score: number | null }) => {
       await apiRequest("PATCH", `/api/grade-components/${componentId}`, { score });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/semesters"] });
+    onError: () => {
+      // Optional: we rely on local optimistic state; just notify on failure
+      toast({ title: "שגיאה בשמירת הציון", variant: "destructive" });
     },
   });
 
@@ -300,6 +301,26 @@ export default function Dashboard() {
       deleteCourseMutation.mutate(courseId);
     }
   }, [deleteCourseMutation]);
+
+  const handleClearCourseGrades = useCallback((courseId: string) => {
+    // Find the course and clear all its grade components
+    const course = semesters.flatMap((s) => s.courses).find((c) => c.id === courseId);
+    if (!course) return;
+
+    // Optimistic UI: set all component scores to null locally so the grade disappears immediately
+    setLocalGrades((prev) => {
+      const next = { ...prev };
+      course.gradeComponents.forEach((component) => {
+        next[component.id] = null as unknown as number; // treated as override; calculators handle null
+      });
+      return next;
+    });
+
+    // Background: persist null scores for each component
+    course.gradeComponents.forEach((component) => {
+      updateScoreMutation.mutate({ componentId: component.id, score: null });
+    });
+  }, [semesters, updateScoreMutation]);
 
   const handleDeleteSemester = useCallback((semesterId: string) => {
     if (window.confirm("האם אתה בטוח שברצונך למחוק את הסמסטר? כל הקורסים בסמסטר יימחקו.")) {
@@ -466,6 +487,7 @@ export default function Dashboard() {
                 onDeleteCourse={handleDeleteCourse}
                 onEditCourse={handleEditCourse}
                 onComponentScoreCommit={handleComponentScoreCommit}
+                onClearCourseGrades={handleClearCourseGrades}
               />
             ))}
 

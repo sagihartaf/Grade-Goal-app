@@ -18,6 +18,7 @@ interface SemesterCardProps {
   onDeleteSemester?: (semesterId: string) => void;
   onDeleteCourse?: (courseId: string) => void;
   onEditCourse?: (course: CourseWithComponents) => void;
+  onClearCourseGrades?: (courseId: string) => void;
 }
 
 export function SemesterCard({
@@ -29,6 +30,7 @@ export function SemesterCard({
   onDeleteSemester,
   onDeleteCourse,
   onEditCourse,
+  onClearCourseGrades,
 }: SemesterCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedCourses, setExpandedCourses] = useState<Set<string>>(new Set());
@@ -162,10 +164,11 @@ export function SemesterCard({
                     isExpanded={expandedCourses.has(course.id)}
                     onToggle={() => toggleCourse(course.id)}
                     onComponentScoreChange={onComponentScoreChange}
-                  onComponentScoreCommit={onComponentScoreCommit}
+                    onComponentScoreCommit={onComponentScoreCommit}
                     onTargetGradeChange={onTargetGradeChange}
                     onDeleteCourse={onDeleteCourse}
                     onEditCourse={onEditCourse}
+                    onClearCourseGrades={onClearCourseGrades}
                   />
                 ))}
               </div>

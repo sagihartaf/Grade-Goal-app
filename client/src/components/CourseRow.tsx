@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useState, useEffect } from "react";
-import { ChevronDown, Trash2, Target, Pencil, ShieldOff } from "lucide-react";
+import { ChevronDown, Trash2, Target, Pencil, ShieldOff, Eraser } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -21,6 +21,7 @@ interface CourseRowProps {
   onTargetGradeChange?: (courseId: string, targetGrade: number | null) => void;
   onDeleteCourse?: (courseId: string) => void;
   onEditCourse?: (course: CourseWithComponents) => void;
+  onClearCourseGrades?: (courseId: string) => void;
 }
 
 export function CourseRow({
@@ -32,6 +33,7 @@ export function CourseRow({
   onTargetGradeChange,
   onDeleteCourse,
   onEditCourse,
+  onClearCourseGrades,
 }: CourseRowProps) {
   const [localTargetGrade, setLocalTargetGrade] = useState<number>(course.targetGrade ?? 80);
   const [isTargetPopoverOpen, setIsTargetPopoverOpen] = useState(false);
@@ -82,6 +84,11 @@ export function CourseRow({
     onTargetGradeChange?.(course.id, null);
     setIsTargetPopoverOpen(false);
   }, [course.id, onTargetGradeChange]);
+
+  const handleClearCourseGrades = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClearCourseGrades?.(course.id);
+  }, [course.id, onClearCourseGrades]);
 
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggle}>
@@ -142,6 +149,24 @@ export function CourseRow({
                       <p className="text-xs text-muted-foreground mt-1">
                         ציון המגן היה נמוך מהמבחן, ולכן בוטל כדי למקסם את הממוצע שלך.
                       </p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {courseGrade !== null && onClearCourseGrades && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground"
+                        onClick={handleClearCourseGrades}
+                        data-testid={`button-clear-course-grade-${course.id}`}
+                      >
+                        <Eraser className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      נקה ציון
                     </TooltipContent>
                   </Tooltip>
                 )}
