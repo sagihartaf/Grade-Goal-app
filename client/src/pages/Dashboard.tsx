@@ -56,15 +56,20 @@ export default function Dashboard() {
   });
 
   // Merge server semesters with local slider edits for instant feedback
+  // If a component has a local override (even null), use it; otherwise fall back to server score.
   const effectiveSemesters = useMemo(() => {
     return semesters.map((semester) => ({
       ...semester,
       courses: semester.courses.map((course) => ({
         ...course,
-        gradeComponents: course.gradeComponents.map((component) => ({
-          ...component,
-          score: localGrades[component.id] ?? component.score ?? null,
-        })),
+        gradeComponents: course.gradeComponents.map((component) => {
+          const hasLocal = Object.prototype.hasOwnProperty.call(localGrades, component.id);
+          const localScore = hasLocal ? localGrades[component.id] : undefined;
+          return {
+            ...component,
+            score: localScore !== undefined ? (localScore as number | null) : (component.score ?? null),
+          };
+        }),
       })),
     }));
   }, [semesters, localGrades]);
