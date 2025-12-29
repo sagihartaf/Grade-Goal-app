@@ -8,3 +8,4 @@ ALTER TABLE users ADD COLUMN degree_name TEXT;
 -- Add comment for documentation
 COMMENT ON COLUMN users.degree_name IS 'User''s degree program name (e.g., Computer Science, Industrial Engineering)';
 
+

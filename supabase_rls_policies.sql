@@ -175,3 +175,4 @@ CREATE POLICY "Users can delete own grade components"
 -- ORDER BY tablename, policyname;
 
 
+

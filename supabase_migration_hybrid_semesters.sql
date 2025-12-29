@@ -19,3 +19,4 @@ COMMENT ON COLUMN semesters.is_legacy_visible IS 'Flag to indicate this is a hyb
 -- Note: We're keeping users.legacy_credits and users.legacy_gpa for backward compatibility
 -- but new functionality will use per-semester legacy data
 
+

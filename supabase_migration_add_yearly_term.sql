@@ -8,3 +8,4 @@ ALTER TYPE term ADD VALUE 'Yearly';
 -- Note: PostgreSQL enum values cannot be removed once added
 -- This is a safe, non-breaking addition
 
+

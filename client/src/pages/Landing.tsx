@@ -1,4 +1,4 @@
-import { GraduationCap, Target, Sliders, Shield, ArrowLeft } from "lucide-react";
+import { GraduationCap, Target, Sliders, Shield, ArrowLeft, BookOpen, Calculator, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Footer } from "@/components/Footer";
 import { supabase } from "@/lib/supabaseClient";
 import { useLocation } from "wouter";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const features = [
   {
@@ -68,7 +69,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col" dir="rtl">
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -173,6 +174,128 @@ export default function Landing() {
                 )}
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Section 1: The Problem & Solution */}
+        <section className="py-16 px-4 bg-muted/30">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold text-center mb-8">
+              למה חשוב לנהל את הממוצע שלך?
+            </h2>
+            <div className="space-y-6 text-lg text-muted-foreground leading-relaxed">
+              <p className="text-right">
+                הצלחה אקדמית אינה רק עניין של לימודים קשים ושעות רבות בספרייה. 
+                סטודנטים רבים מגלים כי למרות המאמץ הרב שהם משקיעים, הממוצע המשוקלל שלהם 
+                לא מתקדם כפי שציפו. הסיבה לכך היא שניהול נכון של הממוצע דורש אסטרטגיה חכמה 
+                ולא רק עבודה קשה. תכנון תואר נכון כולל הבנה של אילו קורסים כדאי לקחת מחדש, 
+                אילו ציונים באמת משפיעים על הממוצע המשוקלל, ואיך לבנות מסלול לימודים שיביא 
+                אותך ליעד שלך בצורה היעילה ביותר.
+              </p>
+              <p className="text-right">
+                GradeGoal נוצר בדיוק כדי לפתור את הבעיה הזו. הכלי שלנו מאפשר לך לנהל את כל 
+                הקורסים שלך במקום אחד, לחשב את הממוצע המשוקלל שלך בזמן אמת, ולבנות אסטרטגיה 
+                אקדמית מותאמת אישית. בעזרת מנוע האסטרטגיה החכם שלנו, תוכל לדעת בדיוק אילו 
+                קורסים כדאי לך לקחת מחדש, אילו ציונים אתה צריך להשיג כדי להגיע ליעד הממוצע 
+                שלך, ולחזות את ההשפעה של כל החלטה על הממוצע המשוקלל שלך. זהו כלי חיוני 
+                לכל סטודנט שרוצה לנהל את התואר שלו בצורה אסטרטגית וחכמה.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 2: How It Works */}
+        <section className="py-16 px-4">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold text-center mb-12">
+              איך זה עובד?
+            </h2>
+            <div className="grid md:grid-cols-3 gap-8">
+              <Card className="text-center">
+                <CardContent className="pt-6">
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <BookOpen className="w-8 h-8 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-xl mb-3">הזנת ציונים</h3>
+                  <p className="text-muted-foreground text-right leading-relaxed">
+                    עקוב אחר כל הקורסים שלך במקום אחד. הזן את הציונים, נקודות הזכות, 
+                    והסמסטרים של כל קורס, והמערכת תשמור את כל המידע בצורה מסודרת 
+                    ונגישה.
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card className="text-center">
+                <CardContent className="pt-6">
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Calculator className="w-8 h-8 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-xl mb-3">חישוב בזמן אמת</h3>
+                  <p className="text-muted-foreground text-right leading-relaxed">
+                    המערכת שלנו מחשבת את הממוצע המשוקלל שלך באופן מיידי. כל פעם שאתה 
+                    מוסיף או משנה ציון, הממוצע מתעדכן אוטומטית לפי כללי המוסדות האקדמיים 
+                    בישראל.
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card className="text-center">
+                <CardContent className="pt-6">
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <TrendingUp className="w-8 h-8 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-xl mb-3">בניית אסטרטגיה</h3>
+                  <p className="text-muted-foreground text-right leading-relaxed">
+                    השתמש במנוע האסטרטגיה כדי למצוא את הדרך הקלה ביותר להגיע ליעד הממוצע 
+                    שלך. המערכת תציע לך אילו קורסים כדאי לקחת מחדש ואילו ציונים אתה צריך 
+                    להשיג.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 3: FAQ */}
+        <section className="py-16 px-4 bg-muted/30">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-3xl font-bold text-center mb-12">
+              שאלות ותשובות
+            </h2>
+            <Accordion type="single" collapsible className="w-full space-y-4">
+              <AccordionItem value="item-1" className="bg-card border rounded-lg px-6">
+                <AccordionTrigger className="text-right hover:no-underline">
+                  <span className="font-semibold text-lg">האם השימוש בחינם?</span>
+                </AccordionTrigger>
+                <AccordionContent className="text-right text-muted-foreground leading-relaxed">
+                  כן, התכונות הבסיסיות של GradeGoal זמינות בחינם. תוכל להזין את כל הקורסים 
+                  שלך, לחשב את הממוצע המשוקלל, ולבצע סימולציות בסיסיות. תכונות מתקדמות כמו 
+                  מנוע האסטרטגיה החכם זמינות במנוי פרימיום.
+                </AccordionContent>
+              </AccordionItem>
+              
+              <AccordionItem value="item-2" className="bg-card border rounded-lg px-6">
+                <AccordionTrigger className="text-right hover:no-underline">
+                  <span className="font-semibold text-lg">איך מחושב הממוצע?</span>
+                </AccordionTrigger>
+                <AccordionContent className="text-right text-muted-foreground leading-relaxed">
+                  הממוצע המשוקלל מחושב לפי הסטנדרט המקובל במוסדות האקדמיים בישראל. כל ציון 
+                  מוכפל בנקודות הזכות של הקורס, סכום כל התוצאות מחולק בסכום נקודות הזכות הכולל. 
+                  המערכת תומכת גם בחישוב ציון מגן אוטומטי לפי כללי המוסדות השונים.
+                </AccordionContent>
+              </AccordionItem>
+              
+              <AccordionItem value="item-3" className="bg-card border rounded-lg px-6">
+                <AccordionTrigger className="text-right hover:no-underline">
+                  <span className="font-semibold text-lg">האם זה מתאים לכל התארים?</span>
+                </AccordionTrigger>
+                <AccordionContent className="text-right text-muted-foreground leading-relaxed">
+                  כן, GradeGoal מתאים לכל סוגי התארים במוסדות האקדמיים בישראל. בין אם אתה 
+                  לומד הנדסה, מדעי החברה, מדעים מדויקים, או כל תחום אחר, המערכת תחשב את 
+                  הממוצע המשוקלל שלך בצורה מדויקת ותסייע לך בתכנון האסטרטגי של התואר.
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         </section>
 
