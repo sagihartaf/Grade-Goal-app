@@ -42,7 +42,7 @@ export function PayPalSubscription({ clientId }: PayPalSubscriptionProps) {
 
       // Invalidate queries to refresh user data
       queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
 
       setTimeout(() => {
         navigate("/");

@@ -13,6 +13,7 @@ import Dashboard from "@/pages/Dashboard";
 import AnalyticsPage from "@/pages/Analytics";
 import Profile from "@/pages/Profile";
 import Subscription from "@/pages/Subscription";
+import AdminDashboard from "@/pages/AdminDashboard";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsOfService from "@/pages/TermsOfService";
 import About from "@/pages/About";
@@ -27,6 +28,7 @@ function AuthenticatedRoutes() {
         <Route path="/analytics" component={AnalyticsPage} />
         <Route path="/profile" component={Profile} />
         <Route path="/subscription" component={Subscription} />
+        <Route path="/admin" component={AdminDashboard} />
         <Route path="/privacy" component={PrivacyPolicy} />
         <Route path="/terms" component={TermsOfService} />
         <Route component={NotFound} />

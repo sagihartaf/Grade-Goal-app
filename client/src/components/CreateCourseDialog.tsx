@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import type { CourseWithComponents } from "@shared/schema";
 import { zodResolver } from "@hookform/resolvers/zod";

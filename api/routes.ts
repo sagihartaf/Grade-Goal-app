@@ -383,4 +383,216 @@ export function registerRoutes(app: Express): void {
     }
   });
 
+  // Search global courses catalog
+  app.get("/api/courses/search", requireAuth, async (req: AuthedRequest, res) => {
+    try {
+      const userId = req.authUser!.id;
+      const query = req.query.q as string;
+      const university = req.query.university as string;
+      const degree = req.query.degree as string | undefined;
+
+      // Validate query parameter
+      if (!query || typeof query !== "string" || query.trim().length === 0) {
+        return res.status(400).json({ message: "Search query (q) is required" });
+      }
+
+      // Get user to validate university is set
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Use provided university or fall back to user's academic institution
+      const searchUniversity = university || user.academicInstitution;
+      if (!searchUniversity) {
+        return res.status(400).json({ 
+          message: "University not set. Please set your academic institution in your profile." 
+        });
+      }
+
+      // Use provided degree or fall back to user's degree
+      const searchDegree = degree !== undefined ? degree : user.degreeName || null;
+
+      // Search courses
+      const courses = await storage.searchGlobalCourses(
+        searchUniversity,
+        searchDegree,
+        query.trim()
+      );
+
+      res.json({ courses });
+    } catch (error) {
+      console.error("Error searching courses:", error);
+      res.status(500).json({ message: "Failed to search courses" });
+    }
+  });
+
+  // Get recommended courses for a semester
+  app.get("/api/courses/recommended", requireAuth, async (req: AuthedRequest, res) => {
+    try {
+      const userId = req.authUser!.id;
+      const university = req.query.university as string;
+      const degree = req.query.degree as string | undefined;
+      const year = req.query.year as string;
+      const semester = req.query.semester as string;
+
+      console.log('GET /api/courses/recommended - Request params:', {
+        university,
+        degree,
+        year,
+        semester,
+        userId,
+      });
+
+      // Validate parameters
+      if (!year || isNaN(parseInt(year))) {
+        console.error('Invalid year parameter:', year);
+        return res.status(400).json({ message: "Academic year (year) is required and must be a number" });
+      }
+
+      // Map frontend semester values to database values
+      const semesterMapping: Record<string, "A" | "B" | "S"> = {
+        "A": "A",
+        "B": "B",
+        "Summer": "S",
+        "Yearly": "A", // Default to A for yearly (or handle separately)
+      };
+
+      if (!semester || !["A", "B", "Summer", "Yearly"].includes(semester)) {
+        console.error('Invalid semester parameter:', semester);
+        return res.status(400).json({ message: "Semester must be one of: A, B, Summer, Yearly" });
+      }
+
+      const dbSemester = semesterMapping[semester];
+      if (!dbSemester) {
+        console.error('Could not map semester to database value:', semester);
+        return res.status(400).json({ message: "Invalid semester value" });
+      }
+
+      // Get user to validate university is set
+      const user = await storage.getUser(userId);
+      if (!user) {
+        console.error('User not found:', userId);
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Use provided university or fall back to user's academic institution
+      const searchUniversity = university || user.academicInstitution;
+      if (!searchUniversity) {
+        console.error('No university set for user:', userId);
+        return res.status(400).json({ 
+          message: "University not set. Please set your academic institution in your profile." 
+        });
+      }
+
+      // Use provided degree or fall back to user's degree
+      const searchDegree = degree !== undefined ? degree : user.degreeName || null;
+
+      console.log('Calling storage.getRecommendedCourses with:', {
+        searchUniversity,
+        searchDegree,
+        year: parseInt(year),
+        dbSemester,
+      });
+
+      // Get recommended courses
+      const courses = await storage.getRecommendedCourses(
+        searchUniversity,
+        searchDegree,
+        parseInt(year),
+        dbSemester
+      );
+
+      console.log('GET /api/courses/recommended - Success:', {
+        courseCount: courses.length,
+      });
+
+      res.json({ courses });
+    } catch (error) {
+      console.error("Error fetching recommended courses - Full error:", error);
+      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace');
+      res.status(500).json({ 
+        message: "Failed to fetch recommended courses",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Admin routes
+  app.get("/api/admin/candidates", requireAuth, async (req: AuthedRequest, res) => {
+    try {
+      const userId = req.authUser!.id;
+      
+      // Get user to check if admin
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Simple admin check - you can expand this later
+      const ADMIN_EMAILS = [
+        "sagi.hartaf@gmail.com",
+      ];
+
+      if (!user.email || !ADMIN_EMAILS.includes(user.email)) {
+        return res.status(403).json({ message: "Access denied. Admin only." });
+      }
+
+      const candidates = await storage.getCourseCandidates();
+      res.json({ candidates });
+    } catch (error) {
+      console.error("Error fetching course candidates:", error);
+      res.status(500).json({ message: "Failed to fetch course candidates" });
+    }
+  });
+
+  app.post("/api/admin/approve", requireAuth, async (req: AuthedRequest, res) => {
+    try {
+      const userId = req.authUser!.id;
+      
+      // Get user to check if admin
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Simple admin check
+      const ADMIN_EMAILS = [
+        "sagi.hartaf@gmail.com",
+      ];
+
+      if (!user.email || !ADMIN_EMAILS.includes(user.email)) {
+        return res.status(403).json({ message: "Access denied. Admin only." });
+      }
+
+      // Validate request body
+      const schema = z.object({
+        university: z.string().min(1),
+        degree: z.string().nullable(),
+        courseName: z.string().min(1),
+        credits: z.number().min(0.1).max(20),
+        academicYear: z.number().nullable(),
+        semester: z.enum(["A", "B", "S"]).nullable(),
+        difficulty: z.enum(["easy", "medium", "hard"]),
+        components: z.array(z.object({
+          name: z.string(),
+          weight: z.number(),
+          isMagen: z.boolean(),
+        })),
+      });
+
+      const data = schema.parse(req.body);
+
+      await storage.approveCourseCatalog(data);
+      
+      res.json({ message: "Course approved and added to catalog" });
+    } catch (error) {
+      console.error("Error approving course:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to approve course" });
+    }
+  });
+
 }

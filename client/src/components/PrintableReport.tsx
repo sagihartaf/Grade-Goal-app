@@ -1,6 +1,7 @@
 import type { SemesterWithCourses, User } from '@shared/schema';
 import { calculateCourseGrade, calculateSemesterGpa, calculateDegreeGpa, calculateCourseGradeWithMagenInfo } from '@/lib/gpaCalculations';
 import { ShieldOff } from 'lucide-react';
+import { getUniversityLabel } from '@/lib/universities';
 
 interface PrintableReportProps {
   semesters: SemesterWithCourses[];
@@ -132,7 +133,7 @@ export function PrintableReport({ semesters, user }: PrintableReportProps) {
           )}
           {user?.academicInstitution && (
             <p style={{ margin: '0 0 4px 0', fontSize: '11pt' }}>
-              <strong>מוסד אקדמי:</strong> {user.academicInstitution}
+              <strong>מוסד אקדמי:</strong> {getUniversityLabel(user.academicInstitution) || user.academicInstitution}
             </p>
           )}
           <p style={{ margin: '0', fontSize: '11pt' }}>
@@ -324,6 +325,9 @@ export function openPrintReport(semesters: SemesterWithCourses[], user: User | n
   });
 
   const userName = user ? [user.firstName, user.lastName].filter(Boolean).join(' ') : '';
+  const institutionLabel = user?.academicInstitution 
+    ? (getUniversityLabel(user.academicInstitution) || user.academicInstitution)
+    : '';
 
   const semestersHtml = sortedSemesters.map(semester => {
     const semesterGpa = calculateSemesterGpa(semester.courses);
@@ -431,10 +435,10 @@ export function openPrintReport(semesters: SemesterWithCourses[], user: User | n
       </div>
 
       <!-- User Info -->
-      ${(userName || user?.academicInstitution) ? `
+      ${(userName || institutionLabel) ? `
         <div style="margin-bottom: 15px; text-align: right;">
           ${userName ? `<p style="margin: 0 0 4px 0; font-size: 11pt;"><strong>סטודנט:</strong> ${userName}</p>` : ''}
-          ${user?.academicInstitution ? `<p style="margin: 0 0 4px 0; font-size: 11pt;"><strong>מוסד אקדמי:</strong> ${user.academicInstitution}</p>` : ''}
+          ${institutionLabel ? `<p style="margin: 0 0 4px 0; font-size: 11pt;"><strong>מוסד אקדמי:</strong> ${institutionLabel}</p>` : ''}
           <p style="margin: 0; font-size: 11pt;"><strong>תאריך:</strong> ${today}</p>
         </div>
       ` : ''}

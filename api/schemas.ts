@@ -8,6 +8,7 @@ import {
   boolean,
   timestamp,
   pgEnum,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -71,6 +72,22 @@ export const gradeComponents = pgTable("grade_components", {
   score: real("score"),
   isMagen: boolean("is_magen").default(false),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Global Courses Catalog table
+export const globalCourses = pgTable("global_courses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  universityName: text("university_name").notNull(),
+  degreeName: text("degree_name"), // NULL = shared across all degrees
+  courseName: text("course_name").notNull(),
+  credits: real("credits").notNull(),
+  gradeBreakdownJson: jsonb("grade_breakdown_json").notNull(),
+  difficulty: difficultyEnum("difficulty").default("medium"),
+  academicYear: integer("academic_year"),
+  semester: varchar("semester", { length: 1 }), // 'A', 'B', 'S' (Summer), or NULL
+  lastVerifiedAt: timestamp("last_verified_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Relations
@@ -146,6 +163,10 @@ export type CourseWithComponents = Course & {
 export type SemesterWithCourses = Semester & {
   courses: CourseWithComponents[];
 };
+
+// Global Courses types
+export type GlobalCourse = typeof globalCourses.$inferSelect;
+export type InsertGlobalCourse = typeof globalCourses.$inferInsert;
 
 
 

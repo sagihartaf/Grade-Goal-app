@@ -3,6 +3,7 @@ import {
   semesters,
   courses,
   gradeComponents,
+  globalCourses,
   type User,
   type UpsertUser,
   type Semester,
@@ -13,9 +14,10 @@ import {
   type InsertGradeComponent,
   type SemesterWithCourses,
   type CourseWithComponents,
+  type GlobalCourse,
 } from "./schemas.js";
-import { db } from "./db.js";
-import { eq } from "drizzle-orm";
+import { db, pool } from "./db.js";
+import { eq, sql, ilike, or, and, isNull } from "drizzle-orm";
 
 export interface InstitutionStats {
   totalUsers: number;
@@ -48,6 +50,47 @@ export interface IStorage {
   // Grade component operations
   getGradeComponent(id: string): Promise<GradeComponent | undefined>;
   updateGradeComponentScore(id: string, score: number | null): Promise<GradeComponent | undefined>;
+  
+  // Global courses catalog operations
+  getRecommendedCourses(university: string, degree: string | null, academicYear: number, semester: "A" | "B" | "S"): Promise<Array<{
+    id: string;
+    course_name: string;
+    credits: number;
+    grade_breakdown: Array<{name: string, weight: number, isMagen: boolean}>;
+    difficulty: "easy" | "medium" | "hard";
+    degree_specific: boolean;
+  }>>;
+  searchGlobalCourses(university: string, degree: string | null, query: string): Promise<Array<{
+    id: string;
+    course_name: string;
+    credits: number;
+    grade_breakdown: Array<{name: string, weight: number, isMagen: boolean}>;
+    difficulty: "easy" | "medium" | "hard";
+    degree_specific: boolean;
+  }>>;
+  
+  // Admin operations
+  getCourseCandidates(): Promise<Array<{
+    university: string;
+    degree: string | null;
+    course_name: string;
+    academic_year: number | null;
+    semester: "A" | "B" | "Summer" | "Yearly" | null;
+    credits: number;
+    difficulty: "easy" | "medium" | "hard";
+    components: Array<{name: string, weight: number, isMagen: boolean}>;
+    user_count: number;
+  }>>;
+  approveCourseCatalog(data: {
+    university: string;
+    degree: string | null;
+    courseName: string;
+    credits: number;
+    academicYear: number | null;
+    semester: "A" | "B" | "S" | null;
+    difficulty: "easy" | "medium" | "hard";
+    components: Array<{name: string, weight: number, isMagen: boolean}>;
+  }): Promise<void>;
 }
 
 // Helper function for semester display name (duplicated here to avoid client import issues)
@@ -339,6 +382,336 @@ export class DatabaseStorage implements IStorage {
       .where(eq(gradeComponents.id, id))
       .returning();
     return component;
+  }
+
+  // Global courses catalog operations
+  async getRecommendedCourses(
+    university: string,
+    degree: string | null,
+    academicYear: number,
+    semester: "A" | "B" | "S"
+  ): Promise<Array<{
+    id: string;
+    course_name: string;
+    credits: number;
+    grade_breakdown: Array<{name: string, weight: number, isMagen: boolean}>;
+    difficulty: "easy" | "medium" | "hard";
+    degree_specific: boolean;
+  }>> {
+    try {
+      console.log('getRecommendedCourses called with:', {
+        university,
+        degree,
+        academicYear,
+        semester,
+        academicYearType: typeof academicYear,
+      });
+
+      // Ensure academicYear is a number
+      const yearNum = typeof academicYear === 'string' ? parseInt(academicYear) : academicYear;
+      
+      if (isNaN(yearNum)) {
+        throw new Error(`Invalid academic year: ${academicYear}`);
+      }
+
+      // Query for courses matching university, degree, year, and semester
+      const result = await pool.query(
+        `SELECT 
+          id,
+          course_name,
+          credits,
+          grade_breakdown_json,
+          difficulty,
+          degree_name
+        FROM global_courses
+        WHERE university_name = $1
+          AND (
+            ($2::text IS NOT NULL AND degree_name = $2) OR
+            degree_name IS NULL
+          )
+          AND (academic_year = $3::integer OR academic_year IS NULL)
+          AND (semester = $4::varchar OR semester IS NULL)
+        ORDER BY
+          CASE WHEN degree_name = $2 THEN 1 ELSE 2 END,
+          CASE WHEN degree_name IS NULL THEN 2 ELSE 3 END,
+          course_name ASC`,
+        [university, degree, yearNum, semester]
+      );
+
+      console.log(`getRecommendedCourses returned ${result.rows.length} courses`);
+      
+      return result.rows.map((row: any) => {
+        const gradeBreakdown = Array.isArray(row.grade_breakdown_json)
+          ? row.grade_breakdown_json
+          : typeof row.grade_breakdown_json === 'string'
+          ? JSON.parse(row.grade_breakdown_json)
+          : row.grade_breakdown_json;
+
+        return {
+          id: row.id,
+          course_name: row.course_name,
+          credits: parseFloat(row.credits),
+          grade_breakdown: gradeBreakdown.map((comp: any) => ({
+            name: comp.name,
+            weight: comp.weight,
+            isMagen: comp.isMagen || false,
+          })),
+          difficulty: (row.difficulty || "medium") as "easy" | "medium" | "hard",
+          degree_specific: row.degree_name !== null,
+        };
+      });
+    } catch (error) {
+      console.error('getRecommendedCourses error:', error);
+      throw error;
+    }
+  }
+
+  async searchGlobalCourses(
+    university: string,
+    degree: string | null,
+    query: string
+  ): Promise<Array<{
+    id: string;
+    course_name: string;
+    credits: number;
+    grade_breakdown: Array<{name: string, weight: number, isMagen: boolean}>;
+    difficulty: "easy" | "medium" | "hard";
+    degree_specific: boolean;
+  }>> {
+    // Use raw SQL for complex ORDER BY with pg_trgm similarity
+    // This query prioritizes:
+    // 1. Degree-specific matches first (degree_name = user's degree)
+    // 2. Shared courses second (degree_name IS NULL)
+    // 3. Text similarity using pg_trgm
+    // 4. Alphabetical order
+    const searchPattern = `%${query}%`;
+    const result = await pool.query(
+      `SELECT 
+        id,
+        course_name,
+        credits,
+        grade_breakdown_json,
+        difficulty,
+        degree_name
+      FROM global_courses
+      WHERE university_name = $1
+        AND (
+          ($2 IS NOT NULL AND degree_name = $2) OR
+          degree_name IS NULL
+        )
+        AND course_name ILIKE $3
+      ORDER BY
+        CASE WHEN degree_name = $2 THEN 1 ELSE 2 END,
+        CASE WHEN degree_name IS NULL THEN 2 ELSE 3 END,
+        similarity(course_name, $4) DESC,
+        course_name ASC
+      LIMIT 20`,
+      [university, degree, searchPattern, query]
+    );
+
+    // Format results for frontend
+    return result.rows.map((row: any) => {
+      const gradeBreakdown = Array.isArray(row.grade_breakdown_json)
+        ? row.grade_breakdown_json
+        : typeof row.grade_breakdown_json === 'string'
+        ? JSON.parse(row.grade_breakdown_json)
+        : row.grade_breakdown_json;
+
+      return {
+        id: row.id,
+        course_name: row.course_name,
+        credits: parseFloat(row.credits),
+        grade_breakdown: gradeBreakdown.map((comp: any) => ({
+          name: comp.name,
+          weight: comp.weight,
+          isMagen: comp.isMagen || false,
+        })),
+        difficulty: (row.difficulty || "medium") as "easy" | "medium" | "hard",
+        degree_specific: row.degree_name !== null,
+      };
+    });
+  }
+
+  async searchGlobalCourses(
+    university: string,
+    degree: string | null,
+    query: string
+  ): Promise<Array<{
+    id: string;
+    course_name: string;
+    credits: number;
+    grade_breakdown: Array<{name: string, weight: number, isMagen: boolean}>;
+    difficulty: "easy" | "medium" | "hard";
+    degree_specific: boolean;
+  }>> {
+    // Use raw SQL for complex ORDER BY with pg_trgm similarity
+    // This query prioritizes:
+    // 1. Degree-specific matches first (degree_name = user's degree)
+    // 2. Shared courses second (degree_name IS NULL)
+    // 3. Text similarity using pg_trgm
+    // 4. Alphabetical order
+    const searchPattern = `%${query}%`;
+    const result = await pool.query(
+      `SELECT 
+        id,
+        course_name,
+        credits,
+        grade_breakdown_json,
+        difficulty,
+        degree_name
+      FROM global_courses
+      WHERE university_name = $1
+        AND (
+          ($2 IS NOT NULL AND degree_name = $2) OR
+          degree_name IS NULL
+        )
+        AND course_name ILIKE $3
+      ORDER BY
+        CASE WHEN degree_name = $2 THEN 1 ELSE 2 END,
+        CASE WHEN degree_name IS NULL THEN 2 ELSE 3 END,
+        similarity(course_name, $4) DESC,
+        course_name ASC
+      LIMIT 20`,
+      [university, degree, searchPattern, query]
+    );
+
+    // Format results for frontend
+    return result.rows.map((row: any) => {
+      const gradeBreakdown = Array.isArray(row.grade_breakdown_json)
+        ? row.grade_breakdown_json
+        : typeof row.grade_breakdown_json === 'string'
+        ? JSON.parse(row.grade_breakdown_json)
+        : row.grade_breakdown_json;
+
+      return {
+        id: row.id,
+        course_name: row.course_name,
+        credits: parseFloat(row.credits),
+        grade_breakdown: gradeBreakdown.map((comp: any) => ({
+          name: comp.name,
+          weight: comp.weight,
+          isMagen: comp.isMagen || false,
+        })),
+        difficulty: (row.difficulty || "medium") as "easy" | "medium" | "hard",
+        degree_specific: row.degree_name !== null,
+      };
+    });
+  }
+
+  // Admin operations
+  async getCourseCandidates(): Promise<Array<{
+    university: string;
+    degree: string | null;
+    course_name: string;
+    academic_year: number | null;
+    semester: "A" | "B" | "Summer" | "Yearly" | null;
+    credits: number;
+    difficulty: "easy" | "medium" | "hard";
+    components: Array<{name: string, weight: number, isMagen: boolean}>;
+    user_count: number;
+  }>> {
+    try {
+      const result = await pool.query(`
+        WITH course_aggregates AS (
+          SELECT 
+            u.academic_institution as university,
+            u.degree_name as degree,
+            c.name as course_name,
+            s.academic_year,
+            s.term as semester,
+            c.credits,
+            c.difficulty,
+            jsonb_agg(
+              jsonb_build_object(
+                'name', gc.name,
+                'weight', gc.weight,
+                'isMagen', COALESCE(gc.is_magen, false)
+              ) ORDER BY gc.weight DESC
+            ) as components,
+            COUNT(DISTINCT c.id) as user_count
+          FROM courses c
+          JOIN semesters s ON c.semester_id = s.id
+          JOIN users u ON s.user_id = u.id
+          LEFT JOIN grade_components gc ON c.id = gc.course_id
+          WHERE u.academic_institution IS NOT NULL
+            AND u.degree_name IS NOT NULL
+            AND LENGTH(c.name) >= 3
+            AND NOT EXISTS (
+              SELECT 1 FROM global_courses gcl
+              WHERE gcl.university_name = u.academic_institution
+                AND gcl.course_name = c.name
+            )
+          GROUP BY 
+            u.academic_institution,
+            u.degree_name,
+            c.name,
+            s.academic_year,
+            s.term,
+            c.credits,
+            c.difficulty
+          HAVING COUNT(DISTINCT s.user_id) >= 1
+        )
+        SELECT * FROM course_aggregates
+        ORDER BY user_count DESC, course_name ASC
+        LIMIT 100
+      `);
+
+      return result.rows.map((row: any) => ({
+        university: row.university,
+        degree: row.degree,
+        course_name: row.course_name,
+        academic_year: row.academic_year,
+        semester: row.semester as "A" | "B" | "Summer" | "Yearly" | null,
+        credits: parseFloat(row.credits),
+        difficulty: (row.difficulty || "medium") as "easy" | "medium" | "hard",
+        components: Array.isArray(row.components) ? row.components : [],
+        user_count: parseInt(row.user_count),
+      }));
+    } catch (error) {
+      console.error('Error fetching course candidates:', error);
+      throw error;
+    }
+  }
+
+  async approveCourseCatalog(data: {
+    university: string;
+    degree: string | null;
+    courseName: string;
+    credits: number;
+    academicYear: number | null;
+    semester: "A" | "B" | "S" | null;
+    difficulty: "easy" | "medium" | "hard";
+    components: Array<{name: string, weight: number, isMagen: boolean}>;
+  }): Promise<void> {
+    try {
+      await pool.query(
+        `INSERT INTO global_courses (
+          university_name,
+          degree_name,
+          course_name,
+          credits,
+          grade_breakdown_json,
+          difficulty,
+          academic_year,
+          semester,
+          last_verified_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        ON CONFLICT (university_name, degree_name, course_name) DO NOTHING`,
+        [
+          data.university,
+          data.degree,
+          data.courseName,
+          data.credits,
+          JSON.stringify(data.components),
+          data.difficulty,
+          data.academicYear,
+          data.semester,
+        ]
+      );
+    } catch (error) {
+      console.error('Error approving course:', error);
+      throw error;
+    }
   }
 }
 

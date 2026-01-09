@@ -1,6 +1,7 @@
 import { useLocation, Link } from "wouter";
-import { LayoutDashboard, User, BarChart3, Crown } from "lucide-react";
+import { LayoutDashboard, User, BarChart3, Crown, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 interface NavItem {
   path: string;
@@ -15,8 +16,19 @@ const navItems: NavItem[] = [
   { path: "/profile", label: "פרופיל", icon: User },
 ];
 
+const ADMIN_EMAIL = "sagi.hartaf@gmail.com";
+
 export function BottomNavigation() {
   const [location] = useLocation();
+  const { user } = useAuth();
+  
+  // Check if user is admin
+  const isAdmin = user?.email === ADMIN_EMAIL;
+  
+  // Add admin link if user is admin
+  const displayNavItems = isAdmin 
+    ? [...navItems, { path: "/admin", label: "ניהול מערכת", icon: Shield }]
+    : navItems;
 
   return (
     <nav 
@@ -24,7 +36,7 @@ export function BottomNavigation() {
       data-testid="nav-bottom"
     >
       <div className="flex items-center justify-around h-full max-w-2xl mx-auto px-4">
-        {navItems.map((item) => {
+        {displayNavItems.map((item) => {
           const isActive = location === item.path;
           const Icon = item.icon;
           

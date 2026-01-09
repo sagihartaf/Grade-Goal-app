@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ChevronDown, Plus, Trash2, History } from "lucide-react";
+import { ChevronDown, Plus, Trash2, History, Download, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,8 @@ interface SemesterCardProps {
   onDeleteCourse?: (courseId: string) => void;
   onEditCourse?: (course: CourseWithComponents) => void;
   onClearCourseGrades?: (courseId: string) => void;
+  onImportRecommended?: (semesterId: string) => void;
+  isImporting?: boolean;
 }
 
 export function SemesterCard({
@@ -31,6 +33,8 @@ export function SemesterCard({
   onDeleteCourse,
   onEditCourse,
   onClearCourseGrades,
+  onImportRecommended,
+  isImporting = false,
 }: SemesterCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedCourses, setExpandedCourses] = useState<Set<string>>(new Set());
@@ -76,6 +80,11 @@ export function SemesterCard({
   const handleAddCourseClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onAddCourse?.();
+  };
+
+  const handleImportRecommended = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onImportRecommended?.(semester.id);
   };
 
   return (
@@ -146,14 +155,42 @@ export function SemesterCard({
         <CollapsibleContent className="animate-accordion-down">
           <div className="border-t border-border">
             {semester.courses.length === 0 ? (
-              <div className="py-8 text-center">
+              <div className="py-8 text-center space-y-3">
                 <p className="text-muted-foreground mb-4">אין קורסים בסמסטר זה</p>
-                {onAddCourse && (
-                  <Button onClick={handleAddCourseClick} variant="outline" data-testid="button-add-first-course">
-                    <Plus className="w-4 h-4 ms-2" />
-                    הוסף קורס ראשון
-                  </Button>
-                )}
+                <div className="flex flex-col gap-2 items-center">
+                  {onImportRecommended && (
+                    <Button 
+                      onClick={handleImportRecommended} 
+                      variant="default" 
+                      disabled={isImporting}
+                      data-testid="button-import-recommended"
+                      className="min-w-[200px]"
+                    >
+                      {isImporting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 ms-2 animate-spin" />
+                          מייבא...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-4 h-4 ms-2" />
+                          ייבא קורסים מומלצים
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {onAddCourse && (
+                    <Button 
+                      onClick={handleAddCourseClick} 
+                      variant="outline" 
+                      data-testid="button-add-first-course"
+                      className="min-w-[200px]"
+                    >
+                      <Plus className="w-4 h-4 ms-2" />
+                      הוסף קורס ידנית
+                    </Button>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="divide-y divide-border/50">

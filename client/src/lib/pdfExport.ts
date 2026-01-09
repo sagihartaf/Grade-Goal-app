@@ -104,7 +104,9 @@ export async function generateGradeReport(
     
     if (user.academicInstitution) {
       yPosition += 6;
-      doc.text(`מוסד אקדמי: ${user.academicInstitution}`, rightX, yPosition, { align: 'right' });
+      const { getUniversityLabel } = await import('@/lib/universities');
+      const institutionLabel = getUniversityLabel(user.academicInstitution) || user.academicInstitution;
+      doc.text(`מוסד אקדמי: ${institutionLabel}`, rightX, yPosition, { align: 'right' });
     }
   }
 

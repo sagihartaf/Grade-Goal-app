@@ -25,6 +25,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { useLocation } from "wouter";
+import { UniversityCombobox } from "@/components/UniversityCombobox";
+import { DegreeCombobox } from "@/components/DegreeCombobox";
+import { getUniversityCode, getUniversityLabel } from "@/lib/universities";
 
 const formSchema = z.object({
   academicInstitution: z.string().optional(),
@@ -50,8 +53,24 @@ export default function Profile() {
 
   useEffect(() => {
     if (user) {
+      // Convert Hebrew label to English code if needed (for backwards compatibility)
+      let institutionCode = user.academicInstitution || "";
+      if (institutionCode) {
+        // Check if it's already a code (exists in our list)
+        const isCode = getUniversityLabel(institutionCode);
+        if (!isCode) {
+          // It's a Hebrew label, try to convert it
+          const code = getUniversityCode(institutionCode);
+          if (code) {
+            institutionCode = code;
+            // Optionally update the user's profile with the code
+            // (This happens silently on next save)
+          }
+        }
+      }
+
       form.reset({
-        academicInstitution: user.academicInstitution || "",
+        academicInstitution: institutionCode,
         degreeName: user.degreeName || "",
         targetGpa: user.targetGpa || null,
       });
@@ -192,10 +211,11 @@ export default function Profile() {
                         מוסד אקדמי
                       </FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="לדוגמה: אוניברסיטת תל אביב"
-                          {...field}
-                          data-testid="input-institution"
+                        <UniversityCombobox
+                          value={field.value || null}
+                          onValueChange={(value) => field.onChange(value || "")}
+                          disabled={updateProfileMutation.isPending}
+                          placeholder="בחר מוסד אקדמי..."
                         />
                       </FormControl>
                       <FormDescription>
@@ -209,25 +229,37 @@ export default function Profile() {
                 <FormField
                   control={form.control}
                   name="degreeName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center gap-2">
-                        <GraduationCap className="w-4 h-4" />
-                        שם התואר
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="לדוגמה: הנדסת תעשייה וניהול"
-                          {...field}
-                          data-testid="input-degree-name"
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        התואר או התכנית הלימודית שלך
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    // Watch academicInstitution to get the university code
+                    const universityCode = form.watch("academicInstitution");
+                    
+                    return (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                          <GraduationCap className="w-4 h-4" />
+                          שם התואר
+                        </FormLabel>
+                        <FormControl>
+                          <DegreeCombobox
+                            value={field.value || null}
+                            onValueChange={(value) => field.onChange(value || "")}
+                            universityCode={universityCode || null}
+                            disabled={updateProfileMutation.isPending}
+                            placeholder="בחר או הקלד שם תואר..."
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          התואר או התכנית הלימודית שלך
+                          {universityCode && (
+                            <span className="block mt-1 text-xs">
+                              תוארים מוצעים עבור המוסד הנבחר
+                            </span>
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField

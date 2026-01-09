@@ -46,13 +46,14 @@ export default function Dashboard() {
   const [localGrades, setLocalGrades] = useState<Record<string, number>>({});
   const pendingGradeUpdates = useRef<Set<string>>(new Set());
   const scoreDebounceTimer = useRef<number | null>(null);
+  const [importingSemesterId, setImportingSemesterId] = useState<string | null>(null);
 
   const { data: semesters = [], isLoading } = useQuery<SemesterWithCourses[]>({
     queryKey: ["/api/semesters"],
   });
 
   const { data: user } = useQuery<User>({
-    queryKey: ["/api/profile"],
+    queryKey: ["/api/auth/user"],
   });
 
   // Merge server semesters with local slider edits for instant feedback
@@ -159,6 +160,7 @@ export default function Dashboard() {
       semesterId: string;
       name: string;
       credits: number;
+      difficulty?: "easy" | "medium" | "hard";
       components: Array<{ name: string; weight: number; isMagen: boolean }>;
     }) => {
       const response = await apiRequest("POST", "/api/courses", data);
@@ -172,6 +174,44 @@ export default function Dashboard() {
     },
     onError: () => {
       toast({ title: "שגיאה ביצירת הקורס", variant: "destructive" });
+    },
+  });
+
+  const importRecommendedCoursesMutation = useMutation({
+    mutationFn: async ({ semesterId, courses }: { semesterId: string; courses: Array<{
+      course_name: string;
+      credits: number;
+      grade_breakdown: Array<{ name: string; weight: number; isMagen: boolean }>;
+      difficulty: "easy" | "medium" | "hard";
+    }> }) => {
+      // Create all courses in parallel
+      const promises = courses.map(course =>
+        apiRequest("POST", "/api/courses", {
+          semesterId,
+          name: course.course_name,
+          credits: course.credits,
+          difficulty: course.difficulty,
+          components: course.grade_breakdown,
+        })
+      );
+      await Promise.all(promises);
+      return courses.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/semesters"] });
+      setImportingSemesterId(null);
+      toast({ 
+        title: "קורסים יובאו בהצלחה", 
+        description: `נוספו ${count} קורסים לסמסטר` 
+      });
+    },
+    onError: (error) => {
+      setImportingSemesterId(null);
+      toast({ 
+        title: "שגיאה ביבוא קורסים", 
+        variant: "destructive",
+        description: "חלק מהקורסים לא נוספו. נסה שוב." 
+      });
     },
   });
 
@@ -294,6 +334,92 @@ export default function Dashboard() {
     setActiveSemesterId(semesterId);
     setEditingCourse(null);
     setIsCreateCourseOpen(true);
+  };
+
+  const handleImportRecommended = async (semesterId: string) => {
+    // Find the semester
+    const semester = semesters.find(s => s.id === semesterId);
+    if (!semester) {
+      toast({ title: "שגיאה", description: "סמסטר לא נמצא", variant: "destructive" });
+      return;
+    }
+
+    // Debug logging
+    console.log('Import Recommended - Current User State:', user);
+    console.log('Import Recommended - Academic Institution:', user?.academicInstitution);
+    console.log('Import Recommended - Degree Name:', user?.degreeName);
+
+    // Lenient validation: warn but don't block
+    // Let the API validate instead
+    if (!user?.academicInstitution) {
+      console.warn('No academic institution set. Proceeding with API call - server will validate.');
+    }
+
+    setImportingSemesterId(semesterId);
+
+    try {
+      // Fetch recommended courses
+      const params = new URLSearchParams({
+        year: semester.academicYear.toString(),
+        semester: semester.term,
+        ...(user.academicInstitution && { university: user.academicInstitution }),
+        ...(user.degreeName && { degree: user.degreeName }),
+      });
+
+      const token = await (await import("@/lib/supabaseClient")).supabase.auth.getSession().then(
+        (res) => res.data.session?.access_token ?? null
+      );
+
+      const response = await fetch(`/api/courses/recommended?${params.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Import Recommended API Error:', { status: response.status, errorData });
+        
+        // If it's a 400 error about missing institution, show specific message
+        if (response.status === 400 && errorData.message?.includes('University not set')) {
+          setImportingSemesterId(null);
+          toast({ 
+            title: "נדרש להגדיר מוסד אקדמי", 
+            description: "הגדר את המוסד האקדמי שלך בפרופיל כדי לייבא קורסים מומלצים",
+            variant: "destructive" 
+          });
+          return;
+        }
+        
+        throw new Error(`Failed to fetch recommended courses: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const courses = data.courses || [];
+
+      if (courses.length === 0) {
+        setImportingSemesterId(null);
+        // Show encouraging info toast (not error) to encourage manual addition
+        toast({ 
+          title: "עדיין אין לנו המלצות לתואר הזה", 
+          description: "היה הראשון להוסיף את הקורסים ידנית! אנחנו נדאג לשמור אותם עבור הסטודנטים הבאים.",
+          variant: "default", // Info style, not error
+        });
+        // Guide user to next step: open add course dialog after toast is visible
+        setTimeout(() => {
+          handleAddCourse(semesterId);
+        }, 800); // Slightly longer delay to let user read the toast
+        return;
+      }
+
+      // Import all courses
+      await importRecommendedCoursesMutation.mutateAsync({ semesterId, courses });
+    } catch (error) {
+      setImportingSemesterId(null);
+      toast({ 
+        title: "שגיאה ביבוא קורסים", 
+        variant: "destructive",
+        description: error instanceof Error ? error.message : "נסה שוב מאוחר יותר"
+      });
+    }
   };
 
   const handleEditCourse = useCallback((course: CourseWithComponents) => {
@@ -493,6 +619,8 @@ export default function Dashboard() {
                 onEditCourse={handleEditCourse}
                 onComponentScoreCommit={handleComponentScoreCommit}
                 onClearCourseGrades={handleClearCourseGrades}
+                onImportRecommended={handleImportRecommended}
+                isImporting={importingSemesterId === semester.id}
               />
             ))}
 
