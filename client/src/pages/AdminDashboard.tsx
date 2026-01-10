@@ -113,23 +113,122 @@ export default function AdminDashboard() {
 
   const grantProMutation = useMutation({
     mutationFn: async (userId: string) => {
-      await apiRequest("POST", "/api/admin/grant-pro", { userId });
+      console.log("[AdminDashboard] Starting grant Pro mutation for userId:", userId);
+      
+      const token = await (async () => {
+        const { supabase } = await import("@/lib/supabaseClient");
+        const { data } = await supabase.auth.getSession();
+        return data.session?.access_token ?? null;
+      })();
+      
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+
+      console.log("[AdminDashboard] Making POST request to /api/admin/grant-pro with userId:", userId);
+
+      const response = await fetch("/api/admin/grant-pro", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ userId }),
+      });
+
+      console.log("[AdminDashboard] Response status:", response.status, response.statusText);
+
+      if (!response.ok) {
+        let errorText = "";
+        let errorData: any = {};
+        
+        try {
+          errorText = await response.text();
+          errorData = JSON.parse(errorText);
+        } catch (parseError) {
+          errorData = { message: errorText || response.statusText };
+        }
+        
+        console.error("[AdminDashboard] API returned error:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorText,
+          errorData,
+        });
+        
+        const error = new Error(`${response.status}: ${errorData.message || errorData.error || "Failed to grant Pro subscription"}`);
+        (error as any).status = response.status;
+        (error as any).data = errorData;
+        (error as any).responseText = errorText;
+        throw error;
+      }
+
+      const data = await response.json();
+      console.log("[AdminDashboard] Success response:", data);
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("[AdminDashboard] Successfully granted Pro:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/admin/candidates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       setGrantingProUserId(null);
       setGrantProDialog({ open: false, candidate: null });
       toast({
         title: "מנוי Pro הוענק בהצלחה",
-        description: "המשתמש קיבל מנוי Pro לשנה",
+        description: data?.message || "המשתמש קיבל מנוי Pro לשנה",
       });
     },
     onError: (error) => {
+      console.error("[AdminDashboard] Error granting Pro subscription:", error);
+      console.error("[AdminDashboard] Error details:", {
+        message: error instanceof Error ? error.message : String(error),
+        status: (error as any)?.status,
+        data: (error as any)?.data,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      
       setGrantingProUserId(null);
+      
+      // Don't close dialog on error - let user try again
+      // setGrantProDialog({ open: false, candidate: null });
+      
+      // Extract detailed error message
+      let errorMessage = "נסה שוב מאוחר יותר";
+      let errorTitle = "שגיאה בהענקת מנוי Pro";
+      
+      if (error instanceof Error) {
+        // Check for specific error types
+        if (error.message.includes("401") || error.message.includes("Unauthorized")) {
+          errorTitle = "שגיאת הרשאה";
+          errorMessage = "ההרשאה שלך פגה. אנא התחבר מחדש.";
+        } else if (error.message.includes("403") || error.message.includes("Access denied")) {
+          errorTitle = "גישה נדחתה";
+          errorMessage = "אין לך הרשאה לבצע פעולה זו. משתמשים מנהל בלבד.";
+        } else if (error.message.includes("404") || error.message.includes("not found")) {
+          errorTitle = "משתמש לא נמצא";
+          errorMessage = "לא ניתן למצוא את המשתמש. נסה לרענן את הדף.";
+        } else if (error.message.includes("500") || error.message.includes("Internal Server Error")) {
+          errorTitle = "שגיאת שרת";
+          errorMessage = "שגיאה בשרת. בדוק את לוגי Vercel לפרטים נוספים.";
+        } else if (error.message.includes("column") || error.message.includes("relation")) {
+          errorTitle = "שגיאת מסד נתונים";
+          errorMessage = "טבלה או עמודה חסרים במסד הנתונים. בדוק את סכמת המסד.";
+        } else if (error.message.includes("permission") || error.message.includes("denied")) {
+          errorTitle = "שגיאת הרשאות";
+          errorMessage = "אין הרשאה לעדכן את מסד הנתונים. בדוק את מדיניות RLS.";
+        } else {
+          errorMessage = error.message;
+        }
+        
+        // Try to extract message from error data
+        if ((error as any)?.data?.message) {
+          errorMessage = (error as any).data.message;
+        } else if ((error as any)?.data?.error) {
+          errorMessage = (error as any).data.error;
+        }
+      }
+      
       toast({
-        title: "שגיאה בהענקת מנוי Pro",
-        description: error instanceof Error ? error.message : "נסה שוב מאוחר יותר",
+        title: errorTitle,
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -427,6 +526,54 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Grant Pro Confirmation Dialog */}
+      <AlertDialog 
+        open={grantProDialog.open} 
+        onOpenChange={(open) => {
+          if (!open && !grantProMutation.isPending) {
+            setGrantProDialog({ open: false, candidate: null });
+            setGrantingProUserId(null);
+          }
+        }}
+      >
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>הענקת מנוי Pro</AlertDialogTitle>
+            <AlertDialogDescription>
+              האם ברצונך להעניק מנוי Pro לשנה למשתמש{" "}
+              <strong>{grantProDialog.candidate?.uploader_email || "לא ידוע"}</strong>?
+              <br />
+              המשתמש העלה עד כה <strong>{grantProDialog.candidate?.upload_count || 0}</strong> קורסים.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={grantProMutation.isPending}>ביטול</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (grantProDialog.candidate?.uploader_user_id) {
+                  setGrantingProUserId(grantProDialog.candidate.uploader_user_id);
+                  grantProMutation.mutate(grantProDialog.candidate.uploader_user_id);
+                }
+              }}
+              disabled={grantProMutation.isPending || !grantProDialog.candidate?.uploader_user_id}
+              className="bg-amber-500 hover:bg-amber-600"
+            >
+              {grantProMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 ms-2 animate-spin" />
+                  מעניק...
+                </>
+              ) : (
+                <>
+                  <Crown className="w-4 h-4 ms-2" />
+                  אשר והענק
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <BottomNavigation />
     </div>

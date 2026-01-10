@@ -164,30 +164,68 @@ export class DatabaseStorage implements IStorage {
   }
 
   async grantProSubscription(userId: string): Promise<User | undefined> {
-    // Grant Pro for 1 year from now
-    const oneYearFromNow = new Date();
-    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-    
-    // Update any pending pro_requests to 'approved'
-    await db
-      .update(proRequests)
-      .set({ status: "approved" })
-      .where(and(
-        eq(proRequests.userId, userId),
-        eq(proRequests.status, "pending")
-      ));
-    
-    // Update user subscription
-    const [user] = await db
-      .update(users)
-      .set({ 
-        subscriptionTier: "pro",
-        subscriptionExpiresAt: oneYearFromNow,
-        updatedAt: new Date() 
-      })
-      .where(eq(users.id, userId))
-      .returning();
-    return user;
+    try {
+      // Grant Pro for 1 year from now
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      
+      console.log(`[grantProSubscription] Starting Pro grant for user ${userId}, expires at: ${oneYearFromNow.toISOString()}`);
+      
+      // Update any pending pro_requests to 'approved'
+      try {
+        const updateResult = await db
+          .update(proRequests)
+          .set({ status: "approved" })
+          .where(and(
+            eq(proRequests.userId, userId),
+            eq(proRequests.status, "pending")
+          ));
+        console.log(`[grantProSubscription] Updated pro_requests for user ${userId}, result:`, updateResult);
+      } catch (proRequestError) {
+        console.error(`[grantProSubscription] Error updating pro_requests for user ${userId}:`, proRequestError);
+        // Continue with user update even if pro_requests update fails
+        // This ensures the user still gets Pro access
+      }
+      
+      // Update user subscription
+      try {
+        const [user] = await db
+          .update(users)
+          .set({ 
+            subscriptionTier: "pro",
+            subscriptionExpiresAt: oneYearFromNow,
+            updatedAt: new Date() 
+          })
+          .where(eq(users.id, userId))
+          .returning();
+        
+        if (!user) {
+          console.error(`[grantProSubscription] No user returned after update for userId: ${userId}`);
+          throw new Error(`Failed to update user ${userId} - no user returned from update`);
+        }
+        
+        console.log(`[grantProSubscription] Successfully granted Pro to user ${userId}, subscription expires: ${user.subscriptionExpiresAt}`);
+        return user;
+      } catch (userUpdateError) {
+        console.error(`[grantProSubscription] Error updating user ${userId}:`, userUpdateError);
+        console.error(`[grantProSubscription] Error details:`, {
+          message: userUpdateError instanceof Error ? userUpdateError.message : String(userUpdateError),
+          stack: userUpdateError instanceof Error ? userUpdateError.stack : undefined,
+          userId,
+          oneYearFromNow: oneYearFromNow.toISOString(),
+        });
+        throw userUpdateError;
+      }
+    } catch (error) {
+      console.error(`[grantProSubscription] Fatal error granting Pro subscription to user ${userId}:`, error);
+      console.error(`[grantProSubscription] Full error object:`, {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined,
+        userId,
+      });
+      throw error;
+    }
   }
 
   async getInstitutionStats(userId: string, userGpa: number): Promise<InstitutionStats | null> {

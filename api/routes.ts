@@ -679,12 +679,17 @@ export function registerRoutes(app: Express): void {
   app.post("/api/admin/grant-pro", requireAuth, async (req: AuthedRequest, res) => {
     try {
       const adminId = req.authUser!.id;
+      console.log(`[POST /api/admin/grant-pro] Request from adminId: ${adminId}`);
+      console.log(`[POST /api/admin/grant-pro] Request body:`, req.body);
       
       // Get admin user to verify
       const adminUser = await storage.getUser(adminId);
       if (!adminUser) {
+        console.error(`[POST /api/admin/grant-pro] Admin user not found: ${adminId}`);
         return res.status(404).json({ message: "User not found" });
       }
+
+      console.log(`[POST /api/admin/grant-pro] Admin user found: ${adminUser.email}`);
 
       // Simple admin check
       const ADMIN_EMAILS = [
@@ -692,6 +697,7 @@ export function registerRoutes(app: Express): void {
       ];
 
       if (!adminUser.email || !ADMIN_EMAILS.includes(adminUser.email)) {
+        console.error(`[POST /api/admin/grant-pro] Access denied for email: ${adminUser.email}`);
         return res.status(403).json({ message: "Access denied. Admin only." });
       }
 
@@ -700,19 +706,32 @@ export function registerRoutes(app: Express): void {
       });
 
       const data = schema.parse(req.body);
+      console.log(`[POST /api/admin/grant-pro] Validated request data, target userId: ${data.userId}`);
 
       // Verify target user exists
       const targetUser = await storage.getUser(data.userId);
       if (!targetUser) {
+        console.error(`[POST /api/admin/grant-pro] Target user not found: ${data.userId}`);
         return res.status(404).json({ message: "Target user not found" });
       }
 
+      console.log(`[POST /api/admin/grant-pro] Target user found: ${targetUser.email}`);
+      console.log(`[POST /api/admin/grant-pro] Current subscription tier: ${targetUser.subscriptionTier}`);
+
       // Grant Pro subscription
+      console.log(`[POST /api/admin/grant-pro] Calling grantProSubscription for userId: ${data.userId}`);
       const updatedUser = await storage.grantProSubscription(data.userId);
       
       if (!updatedUser) {
-        return res.status(500).json({ message: "Failed to grant Pro subscription" });
+        console.error(`[POST /api/admin/grant-pro] grantProSubscription returned undefined for userId: ${data.userId}`);
+        return res.status(500).json({ 
+          message: "Failed to grant Pro subscription",
+          error: "No user returned from update operation"
+        });
       }
+
+      console.log(`[POST /api/admin/grant-pro] Successfully granted Pro to user ${updatedUser.email}`);
+      console.log(`[POST /api/admin/grant-pro] New subscription tier: ${updatedUser.subscriptionTier}, expires: ${updatedUser.subscriptionExpiresAt}`);
 
       res.json({ 
         message: "Pro subscription granted successfully",
@@ -724,11 +743,31 @@ export function registerRoutes(app: Express): void {
         }
       });
     } catch (error) {
-      console.error("Error granting Pro subscription:", error);
+      console.error("[POST /api/admin/grant-pro] Error granting Pro subscription:", error);
+      console.error("[POST /api/admin/grant-pro] Error details:", {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined,
+        adminId: req.authUser?.id,
+        requestBody: req.body,
+      });
+      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+        return res.status(400).json({ 
+          message: "Invalid request data", 
+          errors: error.errors 
+        });
       }
-      res.status(500).json({ message: "Failed to grant Pro subscription" });
+      
+      // Provide more detailed error message for debugging
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const isDatabaseError = errorMessage.includes("column") || errorMessage.includes("relation") || errorMessage.includes("permission");
+      
+      res.status(500).json({ 
+        message: "Failed to grant Pro subscription",
+        error: isDatabaseError ? errorMessage : "Internal server error",
+        hint: isDatabaseError ? "Check database schema and RLS policies" : undefined
+      });
     }
   });
 
