@@ -1,27 +1,49 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Check, Crown, Brain } from "lucide-react";
+import { Check, Crown, Brain, Sparkles } from "lucide-react";
 import { PayPalSubscription } from "@/components/PayPalSubscription";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useLocation } from "wouter";
-
-interface SubscriptionData {
-  subscriptionTier: string;
-}
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { useState } from "react";
+import { useProStatus } from "@/hooks/useProStatus";
 
 export default function Subscription() {
   const queryClient = useQueryClient();
-  const { data: subscription, isLoading } = useQuery<SubscriptionData>({
-    queryKey: ["/api/subscription"],
-  });
+  const { isPro, isLoading } = useProStatus();
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const [requestContent, setRequestContent] = useState("");
 
-  const isPro = subscription?.subscriptionTier === "pro";
   const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
+
+  const createProRequestMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const res = await apiRequest("POST", "/api/pro-requests", { content });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "הבקשה נשלחה בהצלחה!",
+        description: "נעדכן אותך בקרוב",
+      });
+      setRequestContent("");
+    },
+    onError: (error) => {
+      console.error("Error creating pro request:", error);
+      toast({
+        title: "שגיאה בשליחת הבקשה",
+        description: "נסה שוב מאוחר יותר",
+        variant: "destructive",
+      });
+    },
+  });
 
   const features = [
     { name: "חישוב ממוצע ציונים", free: true, pro: true },
@@ -153,12 +175,55 @@ export default function Subscription() {
                 <div className="text-center text-sm text-muted-foreground py-2">
                   אתם מנויי Pro פעילים
                 </div>
-              ) : paypalClientId ? (
-                <PayPalSubscription clientId={paypalClientId} />
               ) : (
-                <div className="text-center text-sm text-muted-foreground py-2">
-                  PayPal לא מוגדר
-                </div>
+                <>
+                  {/* Early Adopter Section */}
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-6 space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="w-5 h-5 text-amber-500" />
+                      <h3 className="font-bold text-lg">היו החלוצים של GradeGoal!</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      אנחנו בתקופת הרצה! עזרו לנו למלא את המאגר.{" "}
+                      <span className="font-bold">הוסיפו שנת לימודים מלאה (סמסטר א' + ב') של תואר שטרם קיים במערכת</span>, וקבלו{" "}
+                      <span className="font-bold">מנוי Pro לשנה במתנה</span>.
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      * שימו לב: ההטבה תינתן רק עבור הוספת תוכן חדש. הוספת קורסים שכבר קיימים במאגר לא תזכה במנוי.
+                    </p>
+                    <div className="space-y-3">
+                      <Textarea
+                        placeholder="היי, בדקתי והתואר שלי עדיין לא מעודכן. הוספתי את שנה [X] של תואר [שם התואר] במוסד [שם המוסד] (סמסטר א' + ב')..."
+                        value={requestContent}
+                        onChange={(e) => setRequestContent(e.target.value)}
+                        className="min-h-[100px] resize-none"
+                        dir="rtl"
+                      />
+                      <Button
+                        onClick={() => {
+                          if (requestContent.trim()) {
+                            createProRequestMutation.mutate(requestContent.trim());
+                          } else {
+                            toast({
+                              title: "שגיאה",
+                              description: "אנא מלא את פרטי הבקשה",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                        disabled={createProRequestMutation.isPending || !requestContent.trim()}
+                        className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+                      >
+                        {createProRequestMutation.isPending ? "שולח..." : "שלח בקשה לשדרוג"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Hidden payment UI for future use */}
+                  {false && paypalClientId && (
+                    <PayPalSubscription clientId={paypalClientId} />
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

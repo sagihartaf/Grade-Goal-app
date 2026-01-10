@@ -13,10 +13,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, CheckCircle, Shield, Users, X } from "lucide-react";
+import { Loader2, CheckCircle, Shield, Users, X, Crown } from "lucide-react";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -30,6 +40,11 @@ interface CourseCandidate {
   difficulty: "easy" | "medium" | "hard";
   components: Array<{ name: string; weight: number; isMagen: boolean }>;
   user_count: number;
+  uploader_user_id: string | null;
+  uploader_email: string | null;
+  uploader_first_name: string | null;
+  uploader_last_name: string | null;
+  upload_count: number;
 }
 
 const ADMIN_EMAILS = [
@@ -43,6 +58,11 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [grantProDialog, setGrantProDialog] = useState<{
+    open: boolean;
+    candidate: CourseCandidate | null;
+  }>({ open: false, candidate: null });
+  const [grantingProUserId, setGrantingProUserId] = useState<string | null>(null);
 
   const { data: candidatesData, isLoading: isCandidatesLoading } = useQuery<{ candidates: CourseCandidate[] }>({
     queryKey: ["/api/admin/candidates"],
@@ -85,6 +105,30 @@ export default function AdminDashboard() {
       setApprovingId(null);
       toast({
         title: "שגיאה באישור קורס",
+        description: error instanceof Error ? error.message : "נסה שוב מאוחר יותר",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const grantProMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      await apiRequest("POST", "/api/admin/grant-pro", { userId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/candidates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setGrantingProUserId(null);
+      setGrantProDialog({ open: false, candidate: null });
+      toast({
+        title: "מנוי Pro הוענק בהצלחה",
+        description: "המשתמש קיבל מנוי Pro לשנה",
+      });
+    },
+    onError: (error) => {
+      setGrantingProUserId(null);
+      toast({
+        title: "שגיאה בהענקת מנוי Pro",
         description: error instanceof Error ? error.message : "נסה שוב מאוחר יותר",
         variant: "destructive",
       });
@@ -189,6 +233,28 @@ export default function AdminDashboard() {
     }
   };
 
+  const getUploadCountColor = (count: number) => {
+    if (count < 5) {
+      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+    } else if (count >= 8) {
+      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+    } else {
+      return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
+    }
+  };
+
+  const handleGrantProClick = (candidate: CourseCandidate) => {
+    if (!candidate.uploader_user_id) {
+      toast({
+        title: "שגיאה",
+        description: "לא ניתן להעניק מנוי - אין ID משתמש",
+        variant: "destructive",
+      });
+      return;
+    }
+    setGrantProDialog({ open: true, candidate });
+  };
+
   return (
     <div className="min-h-screen bg-background pb-32">
       <div className="fixed top-4 start-4 z-50">
@@ -241,6 +307,7 @@ export default function AdminDashboard() {
                         <Users className="w-4 h-4 inline me-1" />
                         משתמשים
                       </TableHead>
+                      <TableHead>מעלה</TableHead>
                       <TableHead className="text-left">פעולות</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -268,6 +335,25 @@ export default function AdminDashboard() {
                           <TableCell className="text-center">
                             <Badge variant="secondary">{candidate.user_count}</Badge>
                           </TableCell>
+                          <TableCell>
+                            {candidate.uploader_email ? (
+                              <div className="text-sm">
+                                <div className="font-medium flex items-center gap-2">
+                                  {candidate.uploader_first_name || candidate.uploader_last_name
+                                    ? `${candidate.uploader_first_name || ""} ${candidate.uploader_last_name || ""}`.trim()
+                                    : "משתמש"}
+                                  {candidate.upload_count > 0 && (
+                                    <Badge className={getUploadCountColor(candidate.upload_count)}>
+                                      {candidate.upload_count} העלאות
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground">{candidate.uploader_email}</div>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
                           <TableCell className="text-left">
                             <div className="flex gap-2">
                               <Button
@@ -290,6 +376,18 @@ export default function AdminDashboard() {
                                   </>
                                 )}
                               </Button>
+                              {candidate.uploader_user_id && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleGrantProClick(candidate)}
+                                  disabled={isApproving || grantingProUserId === candidate.uploader_user_id}
+                                  className="text-amber-600 border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950"
+                                >
+                                  <Crown className="w-4 h-4 ms-1" />
+                                  Pro
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant="ghost"

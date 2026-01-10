@@ -32,6 +32,7 @@ export const users = pgTable("users", {
   legacyCredits: real("legacy_credits").default(0).notNull(),
   legacyGpa: real("legacy_gpa").default(0).notNull(),
   subscriptionTier: varchar("subscription_tier").default("free"),
+  subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }),
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -56,6 +57,7 @@ export const semesters = pgTable("semesters", {
 export const courses = pgTable("courses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   semesterId: varchar("semester_id").notNull().references(() => semesters.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   credits: real("credits").notNull(),
   targetGrade: real("target_grade"),
@@ -90,6 +92,16 @@ export const globalCourses = pgTable("global_courses", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Pro Requests table - for soft launch campaign
+export const proRequests = pgTable("pro_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  status: varchar("status").default("pending"), // pending, approved, rejected
+  notificationSeen: boolean("notification_seen").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   semesters: many(semesters),
@@ -107,6 +119,10 @@ export const coursesRelations = relations(courses, ({ one, many }) => ({
   semester: one(semesters, {
     fields: [courses.semesterId],
     references: [semesters.id],
+  }),
+  uploader: one(users, {
+    fields: [courses.userId],
+    references: [users.id],
   }),
   gradeComponents: many(gradeComponents),
 }));
@@ -167,6 +183,10 @@ export type SemesterWithCourses = Semester & {
 // Global Courses types
 export type GlobalCourse = typeof globalCourses.$inferSelect;
 export type InsertGlobalCourse = typeof globalCourses.$inferInsert;
+
+// Pro Requests types
+export type ProRequest = typeof proRequests.$inferSelect;
+export type InsertProRequest = typeof proRequests.$inferInsert;
 
 
 

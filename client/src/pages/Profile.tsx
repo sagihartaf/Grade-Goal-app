@@ -3,7 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
-import { User, Building2, Target, LogOut, Loader2, GraduationCap, Linkedin } from "lucide-react";
+import { User as UserIcon, Building2, Target, LogOut, Loader2, GraduationCap, Linkedin } from "lucide-react";
+import type { User } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,9 +26,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { supabase } from "@/lib/supabaseClient";
 import { useLocation } from "wouter";
-import { UniversityCombobox } from "@/components/UniversityCombobox";
-import { DegreeCombobox } from "@/components/DegreeCombobox";
-import { getUniversityCode, getUniversityLabel } from "@/lib/universities";
+import { ResourceCombobox } from "@/components/ui/ResourceCombobox";
 
 const formSchema = z.object({
   academicInstitution: z.string().optional(),
@@ -41,6 +40,9 @@ export default function Profile() {
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  
+  // Type guard to ensure user is properly typed
+  const typedUser: User | undefined = user || undefined;
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -52,30 +54,15 @@ export default function Profile() {
   });
 
   useEffect(() => {
-    if (user) {
-      // Convert Hebrew label to English code if needed (for backwards compatibility)
-      let institutionCode = user.academicInstitution || "";
-      if (institutionCode) {
-        // Check if it's already a code (exists in our list)
-        const isCode = getUniversityLabel(institutionCode);
-        if (!isCode) {
-          // It's a Hebrew label, try to convert it
-          const code = getUniversityCode(institutionCode);
-          if (code) {
-            institutionCode = code;
-            // Optionally update the user's profile with the code
-            // (This happens silently on next save)
-          }
-        }
-      }
-
+    if (typedUser) {
+      // Now academicInstitution and degreeName are stored as Hebrew names directly
       form.reset({
-        academicInstitution: institutionCode,
-        degreeName: user.degreeName || "",
-        targetGpa: user.targetGpa || null,
+        academicInstitution: typedUser.academicInstitution || "",
+        degreeName: typedUser.degreeName || "",
+        targetGpa: typedUser.targetGpa || null,
       });
     }
-  }, [user, form]);
+  }, [typedUser, form]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -112,20 +99,20 @@ export default function Profile() {
   };
 
   const getInitials = () => {
-    if (user?.firstName && user?.lastName) {
-      return `${user.firstName[0]}${user.lastName[0]}`;
+    if (typedUser?.firstName && typedUser?.lastName) {
+      return `${typedUser.firstName[0]}${typedUser.lastName[0]}`;
     }
-    if (user?.email) {
-      return user.email[0].toUpperCase();
+    if (typedUser?.email) {
+      return typedUser.email[0].toUpperCase();
     }
     return "U";
   };
 
   const getDisplayName = () => {
-    if (user?.firstName || user?.lastName) {
-      return [user.firstName, user.lastName].filter(Boolean).join(" ");
+    if (typedUser?.firstName || typedUser?.lastName) {
+      return [typedUser.firstName, typedUser.lastName].filter(Boolean).join(" ");
     }
-    return user?.email || "משתמש";
+    return typedUser?.email || "משתמש";
   };
 
   if (isLoading) {
@@ -165,7 +152,7 @@ export default function Profile() {
             <div className="flex items-center gap-4">
               <Avatar className="w-16 h-16">
                 <AvatarImage 
-                  src={user?.profileImageUrl || ""} 
+                  src={typedUser?.profileImageUrl || ""} 
                   alt={getDisplayName()}
                   className="object-cover"
                 />
@@ -178,9 +165,9 @@ export default function Profile() {
                 <h2 className="font-semibold text-lg truncate" data-testid="text-user-name">
                   {getDisplayName()}
                 </h2>
-                {user?.email && (
+                {typedUser?.email && (
                   <p className="text-sm text-muted-foreground truncate" data-testid="text-user-email">
-                    {user.email}
+                    {typedUser.email}
                   </p>
                 )}
               </div>
@@ -191,7 +178,7 @@ export default function Profile() {
         <Card data-testid="card-profile-settings">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
+              <UserIcon className="w-5 h-5" />
               הגדרות פרופיל
             </CardTitle>
             <CardDescription>
@@ -211,9 +198,10 @@ export default function Profile() {
                         מוסד אקדמי
                       </FormLabel>
                       <FormControl>
-                        <UniversityCombobox
+                        <ResourceCombobox
+                          table="academic_institutions"
                           value={field.value || null}
-                          onValueChange={(value) => field.onChange(value || "")}
+                          onChange={(value) => field.onChange(value || "")}
                           disabled={updateProfileMutation.isPending}
                           placeholder="בחר מוסד אקדמי..."
                         />
@@ -229,37 +217,27 @@ export default function Profile() {
                 <FormField
                   control={form.control}
                   name="degreeName"
-                  render={({ field }) => {
-                    // Watch academicInstitution to get the university code
-                    const universityCode = form.watch("academicInstitution");
-                    
-                    return (
-                      <FormItem>
-                        <FormLabel className="flex items-center gap-2">
-                          <GraduationCap className="w-4 h-4" />
-                          שם התואר
-                        </FormLabel>
-                        <FormControl>
-                          <DegreeCombobox
-                            value={field.value || null}
-                            onValueChange={(value) => field.onChange(value || "")}
-                            universityCode={universityCode || null}
-                            disabled={updateProfileMutation.isPending}
-                            placeholder="בחר או הקלד שם תואר..."
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          התואר או התכנית הלימודית שלך
-                          {universityCode && (
-                            <span className="block mt-1 text-xs">
-                              תוארים מוצעים עבור המוסד הנבחר
-                            </span>
-                          )}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        <GraduationCap className="w-4 h-4" />
+                        שם התואר
+                      </FormLabel>
+                      <FormControl>
+                        <ResourceCombobox
+                          table="academic_degrees"
+                          value={field.value || null}
+                          onChange={(value) => field.onChange(value || "")}
+                          disabled={updateProfileMutation.isPending}
+                          placeholder="בחר או הקלד שם תואר..."
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        התואר או התכנית הלימודית שלך
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
 
                 <FormField

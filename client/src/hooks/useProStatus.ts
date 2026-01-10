@@ -13,7 +13,11 @@ const LEMON_SQUEEZY_CHECKOUT_URL = 'https://gradegoal.lemonsqueezy.com/buy/1a922
 export function useProStatus(): ProStatus {
   const { user, isLoading: authLoading } = useAuth();
   
-  const isPro = user?.subscriptionTier === 'pro';
+  // User is Pro ONLY if tier is 'pro' AND subscription hasn't expired (or is null for legacy subscriptions)
+  const isPro = user?.subscriptionTier === 'pro' && (
+    !user?.subscriptionExpiresAt || 
+    (user.subscriptionExpiresAt && new Date(user.subscriptionExpiresAt) > new Date())
+  );
 
   const redirectToCheckout = () => {
     if (!user?.id) {

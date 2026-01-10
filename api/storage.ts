@@ -4,6 +4,7 @@ import {
   courses,
   gradeComponents,
   globalCourses,
+  proRequests,
   type User,
   type UpsertUser,
   type Semester,
@@ -15,6 +16,8 @@ import {
   type SemesterWithCourses,
   type CourseWithComponents,
   type GlobalCourse,
+  type ProRequest,
+  type InsertProRequest,
 } from "./schemas.js";
 import { db, pool } from "./db.js";
 import { eq, sql, ilike, or, and, isNull } from "drizzle-orm";
@@ -32,6 +35,7 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserProfile(id: string, data: Partial<User>): Promise<User | undefined>;
   updateUserStripeInfo(id: string, data: { stripeCustomerId?: string; stripeSubscriptionId?: string; subscriptionTier?: string }): Promise<User | undefined>;
+  grantProSubscription(userId: string): Promise<User | undefined>;
   getInstitutionStats(userId: string, userGpa: number): Promise<InstitutionStats | null>;
   
   // Semester operations
@@ -42,7 +46,7 @@ export interface IStorage {
   
   // Course operations
   getCourse(id: string): Promise<Course | undefined>;
-  createCourse(semesterId: string, data: InsertCourse, components: InsertGradeComponent[]): Promise<Course>;
+  createCourse(semesterId: string, userId: string, data: InsertCourse, components: InsertGradeComponent[]): Promise<Course>;
   updateCourse(id: string, data: { name: string; credits: number; difficulty?: "easy" | "medium" | "hard" }, components: InsertGradeComponent[]): Promise<Course | undefined>;
   updateCourseTargetGrade(id: string, targetGrade: number | null): Promise<Course | undefined>;
   deleteCourse(id: string): Promise<void>;
@@ -80,6 +84,11 @@ export interface IStorage {
     difficulty: "easy" | "medium" | "hard";
     components: Array<{name: string, weight: number, isMagen: boolean}>;
     user_count: number;
+    uploader_user_id: string | null;
+    uploader_email: string | null;
+    uploader_first_name: string | null;
+    uploader_last_name: string | null;
+    upload_count: number;
   }>>;
   approveCourseCatalog(data: {
     university: string;
@@ -91,6 +100,11 @@ export interface IStorage {
     difficulty: "easy" | "medium" | "hard";
     components: Array<{name: string, weight: number, isMagen: boolean}>;
   }): Promise<void>;
+  
+  // Pro Request operations
+  createProRequest(userId: string, content: string): Promise<ProRequest>;
+  getUnseenApprovedProRequest(userId: string): Promise<ProRequest | undefined>;
+  markProRequestNotificationSeen(requestId: string): Promise<ProRequest | undefined>;
 }
 
 // Helper function for semester display name (duplicated here to avoid client import issues)
@@ -145,6 +159,33 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async grantProSubscription(userId: string): Promise<User | undefined> {
+    // Grant Pro for 1 year from now
+    const oneYearFromNow = new Date();
+    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+    
+    // Update any pending pro_requests to 'approved'
+    await db
+      .update(proRequests)
+      .set({ status: "approved" })
+      .where(and(
+        eq(proRequests.userId, userId),
+        eq(proRequests.status, "pending")
+      ));
+    
+    // Update user subscription
+    const [user] = await db
+      .update(users)
+      .set({ 
+        subscriptionTier: "pro",
+        subscriptionExpiresAt: oneYearFromNow,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
       .returning();
     return user;
   }
@@ -299,6 +340,7 @@ export class DatabaseStorage implements IStorage {
 
   async createCourse(
     semesterId: string,
+    userId: string,
     data: InsertCourse,
     components: InsertGradeComponent[]
   ): Promise<Course> {
@@ -307,6 +349,7 @@ export class DatabaseStorage implements IStorage {
       .values({
         ...data,
         semesterId,
+        userId,
       })
       .returning();
 
@@ -532,72 +575,6 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async searchGlobalCourses(
-    university: string,
-    degree: string | null,
-    query: string
-  ): Promise<Array<{
-    id: string;
-    course_name: string;
-    credits: number;
-    grade_breakdown: Array<{name: string, weight: number, isMagen: boolean}>;
-    difficulty: "easy" | "medium" | "hard";
-    degree_specific: boolean;
-  }>> {
-    // Use raw SQL for complex ORDER BY with pg_trgm similarity
-    // This query prioritizes:
-    // 1. Degree-specific matches first (degree_name = user's degree)
-    // 2. Shared courses second (degree_name IS NULL)
-    // 3. Text similarity using pg_trgm
-    // 4. Alphabetical order
-    const searchPattern = `%${query}%`;
-    const result = await pool.query(
-      `SELECT 
-        id,
-        course_name,
-        credits,
-        grade_breakdown_json,
-        difficulty,
-        degree_name
-      FROM global_courses
-      WHERE university_name = $1
-        AND (
-          ($2 IS NOT NULL AND degree_name = $2) OR
-          degree_name IS NULL
-        )
-        AND course_name ILIKE $3
-      ORDER BY
-        CASE WHEN degree_name = $2 THEN 1 ELSE 2 END,
-        CASE WHEN degree_name IS NULL THEN 2 ELSE 3 END,
-        similarity(course_name, $4) DESC,
-        course_name ASC
-      LIMIT 20`,
-      [university, degree, searchPattern, query]
-    );
-
-    // Format results for frontend
-    return result.rows.map((row: any) => {
-      const gradeBreakdown = Array.isArray(row.grade_breakdown_json)
-        ? row.grade_breakdown_json
-        : typeof row.grade_breakdown_json === 'string'
-        ? JSON.parse(row.grade_breakdown_json)
-        : row.grade_breakdown_json;
-
-      return {
-        id: row.id,
-        course_name: row.course_name,
-        credits: parseFloat(row.credits),
-        grade_breakdown: gradeBreakdown.map((comp: any) => ({
-          name: comp.name,
-          weight: comp.weight,
-          isMagen: comp.isMagen || false,
-        })),
-        difficulty: (row.difficulty || "medium") as "easy" | "medium" | "hard",
-        degree_specific: row.degree_name !== null,
-      };
-    });
-  }
-
   // Admin operations
   async getCourseCandidates(): Promise<Array<{
     university: string;
@@ -628,7 +605,8 @@ export class DatabaseStorage implements IStorage {
                 'isMagen', COALESCE(gc.is_magen, false)
               ) ORDER BY gc.weight DESC
             ) as components,
-            COUNT(DISTINCT c.id) as user_count
+            COUNT(DISTINCT c.id) as user_count,
+            MAX(c.user_id) as uploader_user_id
           FROM courses c
           JOIN semesters s ON c.semester_id = s.id
           JOIN users u ON s.user_id = u.id
@@ -650,9 +628,25 @@ export class DatabaseStorage implements IStorage {
             c.credits,
             c.difficulty
           HAVING COUNT(DISTINCT s.user_id) >= 1
+        ),
+        uploader_stats AS (
+          SELECT 
+            user_id,
+            COUNT(*) as total_upload_count
+          FROM courses
+          WHERE user_id IS NOT NULL
+          GROUP BY user_id
         )
-        SELECT * FROM course_aggregates
-        ORDER BY user_count DESC, course_name ASC
+        SELECT 
+          ca.*,
+          u.email as uploader_email,
+          u.first_name as uploader_first_name,
+          u.last_name as uploader_last_name,
+          COALESCE(us.total_upload_count, 0) as upload_count
+        FROM course_aggregates ca
+        LEFT JOIN users u ON ca.uploader_user_id = u.id
+        LEFT JOIN uploader_stats us ON ca.uploader_user_id = us.user_id
+        ORDER BY ca.user_count DESC, ca.course_name ASC
         LIMIT 100
       `);
 
@@ -666,6 +660,11 @@ export class DatabaseStorage implements IStorage {
         difficulty: (row.difficulty || "medium") as "easy" | "medium" | "hard",
         components: Array.isArray(row.components) ? row.components : [],
         user_count: parseInt(row.user_count),
+        uploader_user_id: row.uploader_user_id,
+        uploader_email: row.uploader_email,
+        uploader_first_name: row.uploader_first_name,
+        uploader_last_name: row.uploader_last_name,
+        upload_count: parseInt(row.upload_count) || 0,
       }));
     } catch (error) {
       console.error('Error fetching course candidates:', error);
@@ -712,6 +711,43 @@ export class DatabaseStorage implements IStorage {
       console.error('Error approving course:', error);
       throw error;
     }
+  }
+
+  // Pro Request operations
+  async createProRequest(userId: string, content: string): Promise<ProRequest> {
+    const [request] = await db
+      .insert(proRequests)
+      .values({
+        userId,
+        content,
+        status: "pending",
+      })
+      .returning();
+    return request;
+  }
+
+  async getUnseenApprovedProRequest(userId: string): Promise<ProRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(proRequests)
+      .where(
+        and(
+          eq(proRequests.userId, userId),
+          eq(proRequests.status, "approved"),
+          eq(proRequests.notificationSeen, false)
+        )
+      )
+      .limit(1);
+    return request;
+  }
+
+  async markProRequestNotificationSeen(requestId: string): Promise<ProRequest | undefined> {
+    const [request] = await db
+      .update(proRequests)
+      .set({ notificationSeen: true })
+      .where(eq(proRequests.id, requestId))
+      .returning();
+    return request;
   }
 }
 

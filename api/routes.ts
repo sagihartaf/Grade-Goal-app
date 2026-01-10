@@ -154,6 +154,7 @@ export function registerRoutes(app: Express): void {
 
       const course = await storage.createCourse(
         data.semesterId,
+        userId,
         { 
           semesterId: data.semesterId, 
           name: data.name, 
@@ -349,6 +350,7 @@ export function registerRoutes(app: Express): void {
       
       res.json({
         subscriptionTier: user?.subscriptionTier || "free",
+        subscriptionExpiresAt: user?.subscriptionExpiresAt || null,
         stripeSubscriptionId: user?.stripeSubscriptionId,
       });
     } catch (error) {
@@ -592,6 +594,141 @@ export function registerRoutes(app: Express): void {
         return res.status(400).json({ message: "Invalid request data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to approve course" });
+    }
+  });
+
+  // Create pro request (Soft Launch campaign)
+  app.post("/api/pro-requests", requireAuth, async (req: AuthedRequest, res) => {
+    try {
+      const userId = req.authUser!.id;
+      
+      const schema = z.object({
+        content: z.string().min(1, "Content cannot be empty"),
+      });
+
+      const data = schema.parse(req.body);
+
+      const proRequest = await storage.createProRequest(userId, data.content);
+      
+      res.status(201).json(proRequest);
+    } catch (error) {
+      console.error("Error creating pro request:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create pro request" });
+    }
+  });
+
+  // Get user's unseen Pro notification
+  app.get("/api/user/pro-notification", requireAuth, async (req: AuthedRequest, res) => {
+    try {
+      const userId = req.authUser!.id;
+      const request = await storage.getUnseenApprovedProRequest(userId);
+      
+      if (request) {
+        res.json({
+          hasNotification: true,
+          requestId: request.id,
+        });
+      } else {
+        res.json({
+          hasNotification: false,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching pro notification:", error);
+      res.status(500).json({ message: "Failed to fetch pro notification" });
+    }
+  });
+
+  // Mark Pro notification as seen
+  app.post("/api/user/pro-notification/mark-seen", requireAuth, async (req: AuthedRequest, res) => {
+    try {
+      const userId = req.authUser!.id;
+      
+      const schema = z.object({
+        requestId: z.string().min(1, "Request ID is required"),
+      });
+
+      const data = schema.parse(req.body);
+
+      // Verify the request belongs to the current user
+      const request = await storage.getUnseenApprovedProRequest(userId);
+      if (!request || request.id !== data.requestId) {
+        return res.status(404).json({ message: "Request not found" });
+      }
+
+      const updatedRequest = await storage.markProRequestNotificationSeen(data.requestId);
+      
+      if (!updatedRequest) {
+        return res.status(500).json({ message: "Failed to mark notification as seen" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification as seen:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to mark notification as seen" });
+    }
+  });
+
+  // Admin: Grant Pro subscription to a user
+  app.post("/api/admin/grant-pro", requireAuth, async (req: AuthedRequest, res) => {
+    try {
+      const adminId = req.authUser!.id;
+      
+      // Get admin user to verify
+      const adminUser = await storage.getUser(adminId);
+      if (!adminUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Simple admin check
+      const ADMIN_EMAILS = [
+        "sagi.hartaf@gmail.com",
+      ];
+
+      if (!adminUser.email || !ADMIN_EMAILS.includes(adminUser.email)) {
+        return res.status(403).json({ message: "Access denied. Admin only." });
+      }
+
+      const schema = z.object({
+        userId: z.string().min(1, "User ID is required"),
+      });
+
+      const data = schema.parse(req.body);
+
+      // Verify target user exists
+      const targetUser = await storage.getUser(data.userId);
+      if (!targetUser) {
+        return res.status(404).json({ message: "Target user not found" });
+      }
+
+      // Grant Pro subscription
+      const updatedUser = await storage.grantProSubscription(data.userId);
+      
+      if (!updatedUser) {
+        return res.status(500).json({ message: "Failed to grant Pro subscription" });
+      }
+
+      res.json({ 
+        message: "Pro subscription granted successfully",
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          subscriptionTier: updatedUser.subscriptionTier,
+          subscriptionExpiresAt: updatedUser.subscriptionExpiresAt,
+        }
+      });
+    } catch (error) {
+      console.error("Error granting Pro subscription:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to grant Pro subscription" });
     }
   });
 

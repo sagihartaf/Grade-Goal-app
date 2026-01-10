@@ -1,4 +1,4 @@
-import { GraduationCap, Target, Sliders, Shield, ArrowLeft, BookOpen, Calculator, TrendingUp } from "lucide-react";
+import { GraduationCap, Target, Sliders, Shield, ArrowLeft, BookOpen, Calculator, TrendingUp, Building2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +8,10 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { supabase } from "@/lib/supabaseClient";
 import { useLocation } from "wouter";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ResourceCombobox } from "@/components/ui/ResourceCombobox";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 const features = [
   {
@@ -30,25 +34,65 @@ const features = [
 export default function Landing() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [academicInstitution, setAcademicInstitution] = useState<string | null>(null);
+  const [degreeName, setDegreeName] = useState<string | null>(null);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [status, setStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+
+  // Mutation to update user profile after signup
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: { academicInstitution?: string; degreeName?: string }) => {
+      await apiRequest("PATCH", "/api/profile", data);
+    },
+    onSuccess: () => {
+      toast({ title: "הפרופיל עודכן בהצלחה" });
+    },
+    onError: (error) => {
+      console.error("Error updating profile:", error);
+      // Don't show error toast on signup - user can update later in profile
+    },
+  });
 
   const handleAuth = async () => {
     setIsLoading(true);
     setStatus(null);
     try {
       if (mode === "signup") {
+        // Validate required fields for signup
+        if (!academicInstitution || !degreeName) {
+          setStatus("נא למלא את כל השדות הנדרשים: מוסד אקדמי ותואר");
+          setIsLoading(false);
+          return;
+        }
+
         const { error, data } = await supabase.auth.signUp({
           email,
           password,
         });
         if (error) throw error;
+        
         if (!data.session) {
           setStatus("נשלח מייל אישור. בדוק את התיבה שלך כדי להשלים הרשמה.");
+          // Note: Profile will be updated when user confirms email and signs in
         } else {
+          // User has session immediately - update profile
+          try {
+            await updateProfileMutation.mutateAsync({
+              academicInstitution: academicInstitution || undefined,
+              degreeName: degreeName || undefined,
+            });
+          } catch (profileError) {
+            console.error("Failed to update profile:", profileError);
+            // Continue anyway - user can update in profile page
+          }
           setStatus("ההרשמה הצליחה! מועבר לדשבורד...");
+          // Small delay to show success message
+          setTimeout(() => {
+            navigate("/");
+          }, 1000);
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -121,14 +165,22 @@ export default function Landing() {
                 <Button
                   variant={mode === "signin" ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setMode("signin")}
+                  onClick={() => {
+                    setMode("signin");
+                    setAcademicInstitution(null);
+                    setDegreeName(null);
+                    setStatus(null);
+                  }}
                 >
                   התחברות
                 </Button>
                 <Button
                   variant={mode === "signup" ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setMode("signup")}
+                  onClick={() => {
+                    setMode("signup");
+                    setStatus(null);
+                  }}
                 >
                   הרשמה
                 </Button>
@@ -156,11 +208,46 @@ export default function Landing() {
                     autoComplete={mode === "signin" ? "current-password" : "new-password"}
                   />
                 </div>
+                {mode === "signup" && (
+                  <>
+                    <div className="space-y-1">
+                      <Label className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4" />
+                        מוסד אקדמי <span className="text-destructive">*</span>
+                      </Label>
+                      <ResourceCombobox
+                        table="academic_institutions"
+                        value={academicInstitution}
+                        onChange={setAcademicInstitution}
+                        disabled={isLoading}
+                        placeholder="בחר מוסד אקדמי..."
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="flex items-center gap-2">
+                        <GraduationCap className="w-4 h-4" />
+                        שם התואר <span className="text-destructive">*</span>
+                      </Label>
+                      <ResourceCombobox
+                        table="academic_degrees"
+                        value={degreeName}
+                        onChange={setDegreeName}
+                        disabled={isLoading}
+                        placeholder="בחר או הקלד שם תואר..."
+                      />
+                    </div>
+                  </>
+                )}
                 <Button
                   size="lg"
                   className="w-full"
                   onClick={handleAuth}
-                  disabled={isLoading || !email || !password}
+                  disabled={
+                    isLoading || 
+                    !email || 
+                    !password || 
+                    (mode === "signup" && (!academicInstitution || !degreeName))
+                  }
                   data-testid="button-auth-submit"
                 >
                   {isLoading ? "מעבד..." : mode === "signin" ? "התחבר" : "הירשם"}

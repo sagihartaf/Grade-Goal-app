@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { StickyBottomAd } from "@/components/AdPlaceholder";
+import { ProCelebrationModal } from "@/components/ProCelebrationModal";
 import { Analytics } from "@vercel/analytics/react";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
@@ -33,6 +34,7 @@ function AuthenticatedRoutes() {
         <Route component={NotFound} />
       </Switch>
       <StickyBottomAd />
+      <ProCelebrationModal />
     </>
   );
 }
