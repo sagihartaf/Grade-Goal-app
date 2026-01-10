@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
-import { User, Building2, Target, LogOut, Loader2, GraduationCap } from "lucide-react";
+import { User, Building2, Target, LogOut, Loader2, GraduationCap, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -130,14 +130,14 @@ export default function Profile() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background pb-32 flex items-center justify-center">
+      <div className="min-h-screen bg-background pb-40 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="min-h-screen bg-background pb-40">
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           {/* Right side (RTL): page title + theme */}
@@ -324,6 +324,22 @@ export default function Profile() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Created by Footer */}
+        <div className="flex flex-col items-center justify-center gap-2 mt-12 text-center">
+          <a
+            href="https://www.linkedin.com/in/sagi-hartaf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Created by Sagi Hartaf
+            <Linkedin className="w-4 h-4" />
+          </a>
+          <p className="text-xs text-muted-foreground/80">
+            משהו לא עובד או שיש רעיון לשיפור? אשמח לשמוע
+          </p>
+        </div>
       </main>
 
       <BottomNavigation />

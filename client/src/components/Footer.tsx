@@ -1,19 +1,23 @@
+import { Linkedin } from "lucide-react";
+
 export function Footer() {
   return (
-    <footer className="border-t border-border py-8 px-4">
-      <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
-        <p>© {new Date().getFullYear()} GradeGoal. כל הזכויות שמורות.</p>
-        <div className="flex items-center gap-4">
-          <a href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
-            About
-          </a>
-          <a href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
-            Privacy Policy
-          </a>
-          <a href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">
-            Terms of Service
+    <footer className="py-8 text-center text-muted-foreground">
+      <div className="flex flex-col items-center gap-2">
+        <div>
+          <a
+            href="https://www.linkedin.com/in/sagi-hartaf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center hover:text-primary transition-colors"
+          >
+            Created by Sagi Hartaf
+            <Linkedin className="w-4 h-4 ml-2 inline" />
           </a>
         </div>
+        <p className="text-xs">
+          משהו לא עובד או שיש רעיון לשיפור? אשמח לשמוע
+        </p>
       </div>
     </footer>
   );
