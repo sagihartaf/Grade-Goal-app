@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Footer } from "@/components/Footer";
 import { supabase } from "@/lib/supabaseClient";
 import { useLocation } from "wouter";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -436,6 +437,8 @@ export default function Landing() {
           </div>
         </section>
       </main>
+
+      <Footer />
     </div>
   );
 }
