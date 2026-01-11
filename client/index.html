@@ -33,21 +33,23 @@
       crossorigin="anonymous"
     ></script>
   </head>
-  <body>
+  <body style="margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
     <div id="root">
-      <main>
-        <h1>GradeGoal - Optimize Your Academic Degree</h1>
-        <p>A smart simulator for engineering students to calculate and optimize averages.</p>
-        <h2>How it works</h2>
-        <p>We use algorithms to help you decide where to invest your study efforts.</p>
-        <p>Free usage, Pro features for community contributors.</p>
-        <footer>
-          <ul>
-            <li><a href="/privacy-policy">Privacy Policy</a></li>
-            <li><a href="/terms-of-service">Terms of Service</a></li>
-          </ul>
-        </footer>
-      </main>
+      <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; background-color: #ffffff; color: #333333; padding: 2rem; box-sizing: border-box;">
+        <main style="text-align: center; max-width: 600px;">
+          <h1 style="font-size: 2.5rem; font-weight: 700; margin: 0 0 1rem 0; color: #333333; line-height: 1.2;">GradeGoal - Optimize Your Academic Degree</h1>
+          <p style="font-size: 1.125rem; margin: 0 0 2rem 0; color: #666666; line-height: 1.6;">A smart simulator for engineering students to calculate and optimize averages.</p>
+          <h2 style="font-size: 1.5rem; font-weight: 600; margin: 0 0 1rem 0; color: #333333;">How it works</h2>
+          <p style="font-size: 1rem; margin: 0 0 0.75rem 0; color: #666666; line-height: 1.6;">We use algorithms to help you decide where to invest your study efforts.</p>
+          <p style="font-size: 1rem; margin: 0 0 2rem 0; color: #666666; line-height: 1.6;">Free usage, Pro features for community contributors.</p>
+          <footer style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #e5e5e5;">
+            <ul style="list-style: none; padding: 0; margin: 0; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+              <li><a href="/privacy-policy" style="color: #2563eb; text-decoration: none; font-size: 0.875rem;">Privacy Policy</a></li>
+              <li><a href="/terms-of-service" style="color: #2563eb; text-decoration: none; font-size: 0.875rem;">Terms of Service</a></li>
+            </ul>
+          </footer>
+        </main>
+      </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
