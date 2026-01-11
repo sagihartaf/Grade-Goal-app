@@ -624,6 +624,11 @@ export class DatabaseStorage implements IStorage {
     difficulty: "easy" | "medium" | "hard";
     components: Array<{name: string, weight: number, isMagen: boolean}>;
     user_count: number;
+    uploader_user_id: string | null;
+    uploader_email: string | null;
+    uploader_first_name: string | null;
+    uploader_last_name: string | null;
+    upload_count: number;
   }>> {
     try {
       const result = await pool.query(`
