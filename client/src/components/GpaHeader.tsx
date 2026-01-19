@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatGpa, calculateDegreeGpa } from "@/lib/gpaCalculations";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, Users } from "lucide-react";
+import { Trophy, Users, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SemesterWithCourses } from "@shared/schema";
 
@@ -28,6 +29,8 @@ interface GpaHeaderProps {
   semesters?: SemesterWithCourses[];
   legacyCredits?: number;
   legacyGpa?: number;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 export function GpaHeader({
@@ -42,7 +45,14 @@ export function GpaHeader({
   semesters,
   legacyCredits = 0,
   legacyGpa = 0,
+  onRefresh,
+  isRefreshing: externalIsRefreshing = false,
 }: GpaHeaderProps) {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Use external refreshing state if provided, otherwise use internal state
+  const actuallyRefreshing = externalIsRefreshing || isRefreshing;
+
   const resolvedDegreeGpa = useMemo(() => {
     if (semesters) {
       return calculateDegreeGpa(semesters, legacyCredits, legacyGpa);
@@ -74,6 +84,25 @@ export function GpaHeader({
 
   const displayGpa = getDisplayGpa();
 
+  const handleRefreshClick = async () => {
+    if (!onRefresh || actuallyRefreshing) return;
+    
+    // If using external refresh state, don't manage internal state
+    if (!externalIsRefreshing) {
+      setIsRefreshing(true);
+    }
+    
+    try {
+      await onRefresh();
+    } finally {
+      if (!externalIsRefreshing) {
+        // Add a small delay to show the animation
+        await new Promise(resolve => setTimeout(resolve, 300));
+        setIsRefreshing(false);
+      }
+    }
+  };
+
   const getPercentileBadgeColor = (percentile: number) => {
     if (percentile >= 90) return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
     if (percentile >= 75) return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20";
@@ -104,6 +133,32 @@ export function GpaHeader({
                   {formatGpa(displayGpa ?? null)}
                 </motion.div>
               </AnimatePresence>
+              
+              {/* Refresh Button */}
+              {onRefresh && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={handleRefreshClick}
+                      disabled={actuallyRefreshing}
+                      data-testid="button-refresh-gpa"
+                    >
+                      <RefreshCw 
+                        className={cn(
+                          "w-4 h-4 text-muted-foreground hover:text-foreground transition-colors",
+                          actuallyRefreshing && "animate-spin text-primary"
+                        )} 
+                      />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>{actuallyRefreshing ? "מרענן..." : "רענן חישוב ממוצע"}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               
               {institutionStats && currentFilter === "degree" && (
                 <Tooltip>

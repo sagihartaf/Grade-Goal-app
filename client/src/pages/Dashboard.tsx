@@ -47,8 +47,12 @@ export default function Dashboard() {
   const pendingGradeUpdates = useRef<Set<string>>(new Set());
   const scoreDebounceTimer = useRef<number | null>(null);
   const [importingSemesterId, setImportingSemesterId] = useState<string | null>(null);
+  
+  // Hard reset mechanism
+  const [isHardRefreshing, setIsHardRefreshing] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const { data: semesters = [], isLoading } = useQuery<SemesterWithCourses[]>({
+  const { data: semesters = [], isLoading, isFetching } = useQuery<SemesterWithCourses[]>({
     queryKey: ["/api/semesters"],
   });
 
@@ -101,24 +105,27 @@ export default function Dashboard() {
     });
   }, [effectiveSemesters]);
 
+  // Use a counter to force recalculation when needed
+  const [gpaRefreshKey, setGpaRefreshKey] = useState(0);
+
   const degreeGpa = useMemo(
     () => calculateDegreeGpa(
       effectiveSemesters,
       user?.legacyCredits || 0,
       user?.legacyGpa || 0
     ),
-    [effectiveSemesters, user?.legacyCredits, user?.legacyGpa]
+    [effectiveSemesters, user?.legacyCredits, user?.legacyGpa, gpaRefreshKey]
   );
 
   const yearGpa = useMemo(
     () => calculateYearGpa(effectiveSemesters, selectedYear),
-    [effectiveSemesters, selectedYear]
+    [effectiveSemesters, selectedYear, gpaRefreshKey]
   );
 
   const semesterGpa = useMemo(() => {
     const semester = effectiveSemesters.find((s) => s.id === selectedSemesterId);
     return semester ? calculateSemesterGpa(semester.courses) : null;
-  }, [effectiveSemesters, selectedSemesterId]);
+  }, [effectiveSemesters, selectedSemesterId, gpaRefreshKey]);
 
   interface InstitutionStats {
     totalUsers: number;
@@ -217,11 +224,17 @@ export default function Dashboard() {
 
   const updateScoreMutation = useMutation({
     mutationFn: async ({ componentId, score }: { componentId: string; score: number | null }) => {
+      // Check if this mutation should be aborted
+      if (abortControllerRef.current?.signal.aborted) {
+        throw new Error("Aborted");
+      }
       await apiRequest("PATCH", `/api/grade-components/${componentId}`, { score });
     },
-    onError: () => {
-      // Optional: we rely on local optimistic state; just notify on failure
-      toast({ title: "שגיאה בשמירת הציון", variant: "destructive" });
+    onError: (error: any) => {
+      // Don't show error toast for aborted requests
+      if (error?.message !== "Aborted") {
+        toast({ title: "שגיאה בשמירת הציון", variant: "destructive" });
+      }
     },
   });
 
@@ -282,16 +295,73 @@ export default function Dashboard() {
     },
   });
 
+  const handleRefreshGpa = useCallback(async () => {
+    // Prevent multiple simultaneous refreshes
+    if (isHardRefreshing) return;
+    
+    setIsHardRefreshing(true);
+    
+    try {
+      // STEP 1: Abort all pending API calls
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+      
+      // STEP 2: Explicit state clearing - synchronous, immediate
+      setLocalGrades({});
+      pendingGradeUpdates.current = new Set(); // Create new Set instance
+      
+      // STEP 3: Clear any debounce timers
+      if (scoreDebounceTimer.current) {
+        clearTimeout(scoreDebounceTimer.current);
+        scoreDebounceTimer.current = null;
+      }
+      
+      // STEP 4: Force GPA recalculation with new key (clears stale closures)
+      setGpaRefreshKey(prev => prev + 1);
+      
+      // STEP 5: Invalidate queries to mark them as stale
+      await queryClient.invalidateQueries({ queryKey: ["/api/semesters"] });
+      
+      // STEP 6: Force a complete data refetch and wait for completion
+      await queryClient.refetchQueries({ 
+        queryKey: ["/api/semesters"],
+        exact: true 
+      });
+      
+      toast({
+        title: "הממוצע עודכן",
+        description: "הנתונים רוענו מהשרת",
+      });
+    } catch (error) {
+      console.error("Refresh error:", error);
+      toast({
+        title: "שגיאה ברענון",
+        description: "נסה שוב",
+        variant: "destructive",
+      });
+    } finally {
+      setIsHardRefreshing(false);
+    }
+  }, [isHardRefreshing, toast]);
+
   const handleComponentScoreChange = useCallback((componentId: string, score: number) => {
+    // Don't accept updates during hard refresh
+    if (isHardRefreshing) return;
+    
     // Instant, synchronous UI update: only touch local state
     setLocalGrades((prev) => ({
       ...prev,
       [componentId]: score,
     }));
     pendingGradeUpdates.current.add(componentId);
-  }, []);
+  }, [isHardRefreshing]);
 
   const handleComponentScoreCommit = useCallback((componentId: string, score: number) => {
+    // Don't accept updates during hard refresh
+    if (isHardRefreshing) return;
+    
     // Ensure local state reflects the final drag position
     setLocalGrades((prev) => ({
       ...prev,
@@ -299,10 +369,12 @@ export default function Dashboard() {
     }));
     // Save immediately on drag end (in addition to the debounce safety net)
     updateScoreMutation.mutate({ componentId, score });
-  }, [updateScoreMutation]);
+  }, [updateScoreMutation, isHardRefreshing]);
 
   // Background saver: debounce writes so UI never waits on the network
   useEffect(() => {
+    // Don't debounce during hard refresh
+    if (isHardRefreshing) return;
     if (pendingGradeUpdates.current.size === 0) return;
 
     if (scoreDebounceTimer.current) {
@@ -322,13 +394,63 @@ export default function Dashboard() {
       });
     }, 500);
 
+    // Cleanup function to prevent memory leaks
     return () => {
       if (scoreDebounceTimer.current) {
         clearTimeout(scoreDebounceTimer.current);
         scoreDebounceTimer.current = null;
       }
     };
-  }, [localGrades, updateScoreMutation]);
+  }, [localGrades, updateScoreMutation, isHardRefreshing]);
+
+  // Fix potential freezing: Clear stale local grades when server data changes
+  useEffect(() => {
+    // Don't clean during hard refresh (state is already cleared)
+    if (isHardRefreshing) return;
+    
+    // When semesters data changes from the server, remove any local overrides
+    // for components that no longer exist
+    const allComponentIds = new Set(
+      semesters.flatMap(s => 
+        s.courses.flatMap(c => 
+          c.gradeComponents.map(gc => gc.id)
+        )
+      )
+    );
+    
+    setLocalGrades(prev => {
+      // Check if any keys need to be removed
+      const keysToRemove = Object.keys(prev).filter(id => !allComponentIds.has(id));
+      
+      // Only update state if there are actually stale keys to remove
+      if (keysToRemove.length === 0) {
+        return prev; // Return same object to prevent re-render
+      }
+      
+      // Create cleaned object only if necessary
+      const cleaned: Record<string, number> = {};
+      Object.keys(prev).forEach(id => {
+        if (allComponentIds.has(id)) {
+          cleaned[id] = prev[id];
+        }
+      });
+      return cleaned;
+    });
+  }, [semesters, isHardRefreshing]);
+
+  // Cleanup: Abort pending operations on unmount
+  useEffect(() => {
+    return () => {
+      // Abort any pending API calls
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      // Clear timers
+      if (scoreDebounceTimer.current) {
+        clearTimeout(scoreDebounceTimer.current);
+      }
+    };
+  }, []);
 
   const handleAddCourse = (semesterId: string) => {
     setActiveSemesterId(semesterId);
@@ -504,6 +626,55 @@ export default function Dashboard() {
 
   const activeSemester = sortedSemesters.find((s) => s.id === activeSemesterId);
 
+  // DEBUG: Log state values to diagnose blank screen (after all computations)
+  console.log("=== Dashboard State Debug ===");
+  console.log("1. Loading States:", {
+    isLoading,
+    isFetching,
+    isHardRefreshing,
+  });
+  console.log("2. Semesters Data:", {
+    semesters: semesters,
+    semestersLength: semesters?.length ?? "undefined",
+    semestersIsArray: Array.isArray(semesters),
+    semestersIsUndefined: semesters === undefined,
+    semestersIsNull: semesters === null,
+  });
+  console.log("3. User Data:", {
+    user: user,
+    userIsUndefined: user === undefined,
+    userIsNull: user === null,
+  });
+  console.log("4. Effective Semesters:", {
+    effectiveSemesters: effectiveSemesters,
+    effectiveSemestersLength: effectiveSemesters?.length ?? "undefined",
+    effectiveSemestersIsArray: Array.isArray(effectiveSemesters),
+  });
+  console.log("5. Sorted Semesters:", {
+    sortedSemesters: sortedSemesters,
+    sortedSemestersLength: sortedSemesters?.length ?? "undefined",
+    sortedSemestersIsArray: Array.isArray(sortedSemesters),
+  });
+  console.log("6. Additional State:", {
+    gpaRefreshKey,
+    localGradesKeys: Object.keys(localGrades).length,
+    activeSemesterId,
+  });
+  console.log("7. Render Check:", {
+    willShowLoading: isLoading,
+    willShowEmpty: !isLoading && sortedSemesters.length === 0,
+    willShowSemesters: !isLoading && sortedSemesters.length > 0,
+  });
+  console.log("=== End Dashboard Debug ===");
+  
+  // IMMEDIATE DEBUG: Check where data is lost
+  console.log("RENDER DEBUG:", { 
+    rawSemesters: semesters?.length, 
+    sorted: sortedSemesters?.length, 
+    hasUser: !!user,
+    queryKey: ["/api/semesters"],
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background pb-32">
@@ -558,6 +729,7 @@ export default function Dashboard() {
       </div>
 
       <GpaHeader
+        key={`gpa-header-${gpaRefreshKey}`}
         degreeGpa={degreeGpa}
         yearGpa={yearGpa}
         semesterGpa={semesterGpa}
@@ -569,13 +741,17 @@ export default function Dashboard() {
         semesters={effectiveSemesters}
         legacyCredits={user?.legacyCredits || 0}
         legacyGpa={user?.legacyGpa || 0}
+        onRefresh={handleRefreshGpa}
+        isRefreshing={isHardRefreshing || isFetching}
       />
 
       <div className="py-3">
         <AdPlaceholder variant="large-banner" testId="ad-inline-dashboard" />
       </div>
 
-      <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <main 
+        className="max-w-2xl mx-auto px-4 py-6 space-y-4"
+      >
         {sortedSemesters.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">

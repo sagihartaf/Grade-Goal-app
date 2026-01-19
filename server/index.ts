@@ -95,6 +95,4 @@ if (process.env.NODE_ENV !== "production") {
       log(`serving on http://${host}:${port}`);
     },
   );
-}
-
-export default app;
+}export default app;
