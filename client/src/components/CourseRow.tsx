@@ -91,21 +91,33 @@ export function CourseRow({
   }, [course.id, onClearCourseGrades]);
 
   return (
-    <Collapsible open={isExpanded} onOpenChange={onToggle}>
-      <CollapsibleTrigger asChild>
+    <Collapsible
+      open={isExpanded && !course.isBinary}
+      onOpenChange={(isOpen) => {
+        if (course.isBinary) return;
+        onToggle();
+      }}
+    >
+      <CollapsibleTrigger asChild disabled={course.isBinary}>
         <div
           className={cn(
-            "flex items-center gap-3 py-3 px-4 cursor-pointer hover-elevate rounded-lg transition-colors",
+            "flex items-center gap-3 py-3 px-4 rounded-lg transition-colors",
+            !course.isBinary && "cursor-pointer hover-elevate",
             isExpanded && "bg-muted/30"
           )}
           data-testid={`course-row-${course.id}`}
         >
-          <ChevronDown
-            className={cn(
-              "w-4 h-4 text-muted-foreground transition-transform duration-200",
-              isExpanded && "rotate-180"
-            )}
-          />
+          {!course.isBinary && (
+            <ChevronDown
+              className={cn(
+                "w-4 h-4 text-muted-foreground transition-transform duration-200",
+                isExpanded && "rotate-180"
+              )}
+            />
+          )}
+          {course.isBinary && (
+            <div className="w-4 h-4" />
+          )}
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -122,16 +134,33 @@ export function CourseRow({
           <div className="flex items-center gap-2">
             <div className="flex flex-col items-center">
               <div className="flex items-center gap-1">
-                <span 
-                  className={cn(
-                    "font-bold text-lg tabular-nums min-w-10 text-center",
-                    getGradeColor(courseGrade)
-                  )}
-                  data-testid={`text-course-grade-${course.id}`}
-                >
-                  {formatGpa(courseGrade)}
-                </span>
-                {magenDropped && (
+                {course.isBinary ? (
+                  // Display pass/fail badge for binary courses
+                  <Badge 
+                    variant={courseGrade === 100 ? "default" : "destructive"}
+                    className={cn(
+                      "min-w-16 justify-center text-sm font-bold",
+                      courseGrade === 100 
+                        ? "bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800" 
+                        : "bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
+                    )}
+                    data-testid={`badge-binary-grade-${course.id}`}
+                  >
+                    {courseGrade === 100 ? "עובר" : "נכשל"}
+                  </Badge>
+                ) : (
+                  // Display numeric grade for regular courses
+                  <span 
+                    className={cn(
+                      "font-bold text-lg tabular-nums min-w-10 text-center",
+                      getGradeColor(courseGrade)
+                    )}
+                    data-testid={`text-course-grade-${course.id}`}
+                  >
+                    {formatGpa(courseGrade)}
+                  </span>
+                )}
+                {!course.isBinary && magenDropped && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span 
@@ -152,7 +181,7 @@ export function CourseRow({
                     </TooltipContent>
                   </Tooltip>
                 )}
-                {courseGrade !== null && onClearCourseGrades && (
+                {!course.isBinary && courseGrade !== null && onClearCourseGrades && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -171,28 +200,29 @@ export function CourseRow({
                   </Tooltip>
                 )}
               </div>
-              {course.targetGrade !== null && (
+              {!course.isBinary && course.targetGrade !== null && (
                 <span className="text-[10px] text-muted-foreground">
                   יעד: {course.targetGrade}
                 </span>
               )}
             </div>
             
-            <Popover open={isTargetPopoverOpen} onOpenChange={setIsTargetPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleTargetClick}
-                  className={cn(
-                    "transition-opacity",
-                    course.targetGrade !== null ? "text-primary" : "text-muted-foreground"
-                  )}
-                  data-testid={`button-target-${course.id}`}
-                >
-                  <Target className="w-4 h-4" />
-                </Button>
-              </PopoverTrigger>
+            {!course.isBinary && (
+              <Popover open={isTargetPopoverOpen} onOpenChange={setIsTargetPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleTargetClick}
+                    className={cn(
+                      "transition-opacity",
+                      course.targetGrade !== null ? "text-primary" : "text-muted-foreground"
+                    )}
+                    data-testid={`button-target-${course.id}`}
+                  >
+                    <Target className="w-4 h-4" />
+                  </Button>
+                </PopoverTrigger>
               <PopoverContent 
                 className="w-72" 
                 align="end"
@@ -236,7 +266,8 @@ export function CourseRow({
                   </div>
                 </div>
               </PopoverContent>
-            </Popover>
+              </Popover>
+            )}
             
             {onEditCourse && (
               <Button
@@ -263,7 +294,7 @@ export function CourseRow({
         </div>
       </CollapsibleTrigger>
       
-      {course.targetGrade !== null && progressToTarget !== null && (
+      {!course.isBinary && course.targetGrade !== null && progressToTarget !== null && (
         <div className="px-4 pb-2">
           <div className="flex items-center gap-2">
             <Progress 
@@ -281,27 +312,29 @@ export function CourseRow({
         </div>
       )}
 
-      <CollapsibleContent className="overflow-hidden">
-        <div className="ps-8 pe-4 pb-3 space-y-1">
-          {course.gradeComponents.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2 text-center">
-              אין מרכיבי ציון
-            </p>
-          ) : (
-            course.gradeComponents.map((component) => (
-              <GradeSlider
-                key={component.id}
-                value={component.score}
-                onChange={(score) => onComponentScoreChange(component.id, score)}
-                onCommit={onComponentScoreCommit ? (score) => onComponentScoreCommit(component.id, score) : undefined}
-                componentName={component.name}
-                weight={component.weight}
-                isMagen={component.isMagen || false}
-              />
-            ))
-          )}
-        </div>
-      </CollapsibleContent>
+      {!course.isBinary && (
+        <CollapsibleContent className="overflow-hidden">
+          <div className="ps-8 pe-4 pb-3 space-y-1">
+            {course.gradeComponents.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2 text-center">
+                אין מרכיבי ציון
+              </p>
+            ) : (
+              course.gradeComponents.map((component) => (
+                <GradeSlider
+                  key={component.id}
+                  value={component.score}
+                  onChange={(score) => onComponentScoreChange(component.id, score)}
+                  onCommit={onComponentScoreCommit ? (score) => onComponentScoreCommit(component.id, score) : undefined}
+                  componentName={component.name}
+                  weight={component.weight}
+                  isMagen={component.isMagen || false}
+                />
+              ))
+            )}
+          </div>
+        </CollapsibleContent>
+      )}
     </Collapsible>
   );
 }

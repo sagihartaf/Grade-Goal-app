@@ -46,8 +46,8 @@ export interface IStorage {
   
   // Course operations
   getCourse(id: string): Promise<Course | undefined>;
-  createCourse(semesterId: string, userId: string, data: InsertCourse, components: InsertGradeComponent[]): Promise<Course>;
-  updateCourse(id: string, data: { name: string; credits: number; difficulty?: "easy" | "medium" | "hard" }, components: InsertGradeComponent[]): Promise<Course | undefined>;
+  createCourse(semesterId: string, userId: string, data: Omit<InsertCourse, "userId">, components: InsertGradeComponent[]): Promise<Course>;
+  updateCourse(id: string, data: { name: string; credits: number; difficulty?: "easy" | "medium" | "hard"; isBinary?: boolean }, components: InsertGradeComponent[]): Promise<Course | undefined>;
   updateCourseTargetGrade(id: string, targetGrade: number | null): Promise<Course | undefined>;
   deleteCourse(id: string): Promise<void>;
   
@@ -253,6 +253,9 @@ export class DatabaseStorage implements IStorage {
 
       for (const semester of userSemesters) {
         for (const course of semester.courses) {
+          // Exclude binary courses from GPA calculation
+          if (course.isBinary) continue;
+          
           const components = course.gradeComponents;
           if (components.length === 0) continue;
 
@@ -379,14 +382,13 @@ export class DatabaseStorage implements IStorage {
   async createCourse(
     semesterId: string,
     userId: string,
-    data: InsertCourse,
+    data: Omit<InsertCourse, "userId">,
     components: InsertGradeComponent[]
   ): Promise<Course> {
     const [course] = await db
       .insert(courses)
       .values({
         ...data,
-        semesterId,
         userId,
       })
       .returning();
@@ -404,13 +406,16 @@ export class DatabaseStorage implements IStorage {
 
   async updateCourse(
     id: string,
-    data: { name: string; credits: number; difficulty?: "easy" | "medium" | "hard" },
+    data: { name: string; credits: number; difficulty?: "easy" | "medium" | "hard"; isBinary?: boolean },
     components: InsertGradeComponent[]
   ): Promise<Course | undefined> {
     // Update course info
     const updateData: any = { name: data.name, credits: data.credits };
     if (data.difficulty !== undefined) {
       updateData.difficulty = data.difficulty;
+    }
+    if (data.isBinary !== undefined) {
+      updateData.isBinary = data.isBinary;
     }
     
     const [course] = await db

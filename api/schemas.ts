@@ -62,6 +62,7 @@ export const courses = pgTable("courses", {
   credits: real("credits").notNull(),
   targetGrade: real("target_grade"),
   difficulty: difficultyEnum("difficulty").default("medium"),
+  isBinary: boolean("is_binary").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -147,10 +148,14 @@ export const insertSemesterSchema = createInsertSchema(semesters).omit({
   name: true,
 });
 
-export const insertCourseSchema = createInsertSchema(courses).omit({
-  id: true,
-  createdAt: true,
-});
+export const insertCourseSchema = createInsertSchema(courses)
+  .omit({
+    id: true,
+    createdAt: true,
+  })
+  .extend({
+    isBinary: z.boolean().optional().default(false),
+  });
 
 export const insertGradeComponentSchema = createInsertSchema(gradeComponents).omit({
   id: true,

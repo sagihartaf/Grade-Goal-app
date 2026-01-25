@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import type { CourseWithComponents } from "@shared/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,8 +37,12 @@ const formSchema = z.object({
   name: z.string().min(1, "שם הקורס נדרש"),
   credits: z.number().min(0.1, "יש להזין נקודות זכות").max(20),
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
+  isBinary: z.boolean().default(false),
+  passed: z.boolean().default(true).optional(),
   components: z.array(componentSchema).min(1, "יש להוסיף לפחות מרכיב אחד"),
 }).refine((data) => {
+  // If binary, we don't need to check component weights
+  if (data.isBinary) return true;
   const totalWeight = data.components.reduce((sum, c) => sum + c.weight, 0);
   return totalWeight === 100;
 }, {
@@ -53,6 +59,7 @@ interface CreateCourseDialogProps {
     name: string;
     credits: number;
     difficulty?: "easy" | "medium" | "hard";
+    isBinary?: boolean;
     components: Array<{ name: string; weight: number; score?: number | null; isMagen: boolean }>;
   }) => void;
   isPending?: boolean;
@@ -69,6 +76,7 @@ export function CreateCourseDialog({
   editCourse,
 }: CreateCourseDialogProps) {
   const isEditMode = !!editCourse;
+  const [gradeType, setGradeType] = useState<"numeric" | "binary">("numeric");
   
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -76,6 +84,8 @@ export function CreateCourseDialog({
       name: "",
       credits: 3,
       difficulty: "medium" as const,
+      isBinary: false,
+      passed: true,
       components: [
         { name: "מבחן סופי", weight: 70, score: null, isMagen: false },
         { name: "תרגילים", weight: 30, score: null, isMagen: false },
@@ -85,10 +95,18 @@ export function CreateCourseDialog({
   
   useEffect(() => {
     if (editCourse && open) {
+      const isBinary = editCourse.isBinary || false;
+      setGradeType(isBinary ? "binary" : "numeric");
+      
+      // For binary courses, check if passed (grade === 100)
+      const passed = isBinary && editCourse.gradeComponents.length > 0 && editCourse.gradeComponents[0].score === 100;
+      
       form.reset({
         name: editCourse.name,
         credits: editCourse.credits,
         difficulty: (editCourse.difficulty || "medium") as "easy" | "medium" | "hard",
+        isBinary: isBinary,
+        passed: passed,
         components: editCourse.gradeComponents.map(c => ({
           name: c.name,
           weight: c.weight,
@@ -97,10 +115,13 @@ export function CreateCourseDialog({
         })),
       });
     } else if (!editCourse && open) {
+      setGradeType("numeric");
       form.reset({
         name: "",
         credits: 3,
         difficulty: "medium" as const,
+        isBinary: false,
+        passed: true,
         components: [
           { name: "מבחן סופי", weight: 70, score: null, isMagen: false },
           { name: "תרגילים", weight: 30, score: null, isMagen: false },
@@ -117,8 +138,29 @@ export function CreateCourseDialog({
   const totalWeight = form.watch("components").reduce((sum, c) => sum + (c.weight || 0), 0);
 
   const handleSubmit = (data: FormData) => {
-    onSubmit(data);
+    // If binary mode, create a single component with grade 100 (pass) or 0 (fail)
+    if (data.isBinary) {
+      const grade = data.passed ? 100 : 0;
+      onSubmit({
+        name: data.name,
+        credits: data.credits,
+        difficulty: data.difficulty,
+        isBinary: true,
+        components: [
+          { name: "ציון", weight: 100, score: grade, isMagen: false }
+        ],
+      });
+    } else {
+      onSubmit({
+        name: data.name,
+        credits: data.credits,
+        difficulty: data.difficulty,
+        isBinary: false,
+        components: data.components,
+      });
+    }
     form.reset();
+    setGradeType("numeric");
   };
 
   const addComponent = () => {
@@ -236,151 +278,205 @@ export function CreateCourseDialog({
               )}
             />
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <FormLabel>מרכיבי הציון</FormLabel>
-                <span
-                  className={cn(
-                    "text-sm font-medium",
-                    totalWeight === 100
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-destructive"
-                  )}
-                >
-                  סה״כ: {totalWeight}%
-                </span>
-              </div>
+            <div className="space-y-3 border-t pt-4">
+              <FormLabel>סוג הציון</FormLabel>
+              <Tabs 
+                value={gradeType} 
+                onValueChange={(value) => {
+                  setGradeType(value as "numeric" | "binary");
+                  form.setValue("isBinary", value === "binary");
+                }}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="numeric" data-testid="tab-numeric-grade">
+                    ציון מספרי
+                  </TabsTrigger>
+                  <TabsTrigger value="binary" data-testid="tab-binary-grade">
+                    עובר/נכשל
+                  </TabsTrigger>
+                </TabsList>
 
-              <div className="space-y-2">
-                {fields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg"
-                  >
-                    <div className="flex-1 grid grid-cols-3 gap-2">
-                      <FormField
-                        control={form.control}
-                        name={`components.${index}.name`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                placeholder="שם המרכיב"
-                                {...field}
-                                data-testid={`input-component-name-${index}`}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
+                <TabsContent value="numeric" className="mt-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <FormLabel>מרכיבי הציון</FormLabel>
+                      <span
+                        className={cn(
+                          "text-sm font-medium",
+                          totalWeight === 100
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-destructive"
                         )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name={`components.${index}.weight`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <div className="relative">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  placeholder="משקל"
-                                  {...field}
-                                  onChange={(e) =>
-                                    field.onChange(parseInt(e.target.value) || 0)
-                                  }
-                                  className="ps-7"
-                                  data-testid={`input-component-weight-${index}`}
-                                />
-                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                                  %
-                                </span>
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name={`components.${index}.score`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                placeholder="ציון"
-                                value={field.value ?? ""}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  field.onChange(val === "" ? null : parseInt(val));
-                                }}
-                                data-testid={`input-component-score-${index}`}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      >
+                        סה״כ: {totalWeight}%
+                      </span>
                     </div>
 
+                    <div className="space-y-2">
+                      {fields.map((field, index) => (
+                        <div
+                          key={field.id}
+                          className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg"
+                        >
+                          <div className="flex-1 grid grid-cols-3 gap-2">
+                            <FormField
+                              control={form.control}
+                              name={`components.${index}.name`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <Input
+                                      placeholder="שם המרכיב"
+                                      {...field}
+                                      data-testid={`input-component-name-${index}`}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name={`components.${index}.weight`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <div className="relative">
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        placeholder="משקל"
+                                        {...field}
+                                        onChange={(e) =>
+                                          field.onChange(parseInt(e.target.value) || 0)
+                                        }
+                                        className="ps-7"
+                                        data-testid={`input-component-weight-${index}`}
+                                      />
+                                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                                        %
+                                      </span>
+                                    </div>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name={`components.${index}.score`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      placeholder="ציון"
+                                      value={field.value ?? ""}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        field.onChange(val === "" ? null : parseInt(val));
+                                      }}
+                                      data-testid={`input-component-score-${index}`}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <FormField
+                            control={form.control}
+                            name={`components.${index}.isMagen`}
+                            render={({ field }) => (
+                              <FormItem className="flex items-center gap-2 space-y-0 pt-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    data-testid={`checkbox-magen-${index}`}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-xs font-normal cursor-pointer">
+                                  מגן
+                                </FormLabel>
+                              </FormItem>
+                            )}
+                          />
+
+                          {fields.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => remove(index)}
+                              className="shrink-0"
+                              data-testid={`button-remove-component-${index}`}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addComponent}
+                      className="w-full"
+                      data-testid="button-add-component"
+                    >
+                      <Plus className="w-4 h-4 ms-2" />
+                      הוסף מרכיב
+                    </Button>
+
+                    {form.formState.errors.components?.root && (
+                      <p className="text-sm text-destructive">
+                        {form.formState.errors.components.root.message}
+                      </p>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="binary" className="mt-4">
+                  <div className="space-y-4">
                     <FormField
                       control={form.control}
-                      name={`components.${index}.isMagen`}
+                      name="passed"
                       render={({ field }) => (
-                        <FormItem className="flex items-center gap-2 space-y-0 pt-2">
+                        <FormItem className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                          <div className="space-y-1">
+                            <FormLabel className="text-base">האם עברת את הקורס?</FormLabel>
+                            <p className="text-sm text-muted-foreground">
+                              קורס זה אינו נחשב בחישוב הממוצע
+                            </p>
+                          </div>
                           <FormControl>
-                            <Checkbox
+                            <Switch
                               checked={field.value}
                               onCheckedChange={field.onChange}
-                              data-testid={`checkbox-magen-${index}`}
+                              data-testid="switch-passed"
                             />
                           </FormControl>
-                          <FormLabel className="text-xs font-normal cursor-pointer">
-                            מגן
-                          </FormLabel>
                         </FormItem>
                       )}
                     />
-
-                    {fields.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => remove(index)}
-                        className="shrink-0"
-                        data-testid={`button-remove-component-${index}`}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    )}
+                    <div className="flex items-center justify-center p-6 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <p className="text-sm text-blue-700 dark:text-blue-300 font-medium text-center">
+                        💡 קורס זה יספור את הנקודות לתואר אך לא ישפיע על הממוצע שלך
+                      </p>
+                    </div>
                   </div>
-                ))}
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addComponent}
-                className="w-full"
-                data-testid="button-add-component"
-              >
-                <Plus className="w-4 h-4 ms-2" />
-                הוסף מרכיב
-              </Button>
-
-              {form.formState.errors.components?.root && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.components.root.message}
-                </p>
-              )}
+                </TabsContent>
+              </Tabs>
             </div>
 
             <div className="flex gap-3 pt-4">

@@ -65,6 +65,8 @@ export function calculateCourseGrade(components: GradeComponent[]): number | nul
 // Calculate semester GPA (standard - no legacy data)
 export function calculateSemesterGpa(courses: CourseWithComponents[]): number | null {
   const gradedCourses = courses.filter((course) => {
+    // Exclude binary courses from GPA calculation
+    if (course.isBinary) return false;
     const grade = calculateCourseGrade(course.gradeComponents);
     return grade !== null;
   });
@@ -86,8 +88,10 @@ export function calculateHybridSemesterGpa(
   legacyCredits: number = 0,
   legacyGpa: number = 0
 ): number | null {
-  // Calculate GPA from individual courses
+  // Calculate GPA from individual courses (excluding binary courses)
   const gradedCourses = courses.filter((course) => {
+    // Exclude binary courses from GPA calculation
+    if (course.isBinary) return false;
     const grade = calculateCourseGrade(course.gradeComponents);
     return grade !== null;
   });
@@ -142,8 +146,8 @@ export function calculateDegreeGpa(
     );
 
     if (hybridGpa !== null) {
-      // Get total credits for this semester (legacy + actual)
-      const gradedCourses = semester.courses.filter(c => calculateCourseGrade(c.gradeComponents) !== null);
+      // Get total credits for this semester (legacy + actual, excluding binary courses from GPA)
+      const gradedCourses = semester.courses.filter(c => !c.isBinary && calculateCourseGrade(c.gradeComponents) !== null);
       const actualCredits = gradedCourses.reduce((sum, c) => sum + c.credits, 0);
       const semesterTotalCredits = semesterLegacyCredits + actualCredits;
 
@@ -165,6 +169,7 @@ export function calculateDegreeGpa(
 export function calculateYearGpa(semesters: SemesterWithCourses[], year: number): number | null {
   const yearSemesters = semesters.filter((s) => s.academicYear === year);
   const allCourses = yearSemesters.flatMap((s) => s.courses);
+  // Binary courses will be filtered out in calculateSemesterGpa
   return calculateSemesterGpa(allCourses);
 }
 

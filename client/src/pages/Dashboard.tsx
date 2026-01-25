@@ -168,7 +168,8 @@ export default function Dashboard() {
       name: string;
       credits: number;
       difficulty?: "easy" | "medium" | "hard";
-      components: Array<{ name: string; weight: number; isMagen: boolean }>;
+      isBinary?: boolean;
+      components: Array<{ name: string; weight: number; score?: number | null; isMagen: boolean }>;
     }) => {
       const response = await apiRequest("POST", "/api/courses", data);
       return response;
@@ -267,7 +268,7 @@ export default function Dashboard() {
   const updateCourseMutation = useMutation({
     mutationFn: async ({ courseId, data }: { 
       courseId: string; 
-      data: { name: string; credits: number; components: Array<{ name: string; weight: number; score?: number | null; isMagen: boolean }> } 
+      data: { name: string; credits: number; difficulty?: "easy" | "medium" | "hard"; isBinary?: boolean; components: Array<{ name: string; weight: number; score?: number | null; isMagen: boolean }> } 
     }) => {
       await apiRequest("PUT", `/api/courses/${courseId}`, data);
     },

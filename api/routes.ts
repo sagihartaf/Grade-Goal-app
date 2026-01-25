@@ -136,6 +136,7 @@ export function registerRoutes(app: Express): void {
         name: z.string().min(1),
         credits: z.number().min(0.1).max(20),
         difficulty: z.enum(["easy", "medium", "hard"]).optional(),
+        isBinary: z.boolean().optional().default(false),
         components: z.array(z.object({
           name: z.string().min(1),
           weight: z.number().min(0).max(100),
@@ -159,7 +160,8 @@ export function registerRoutes(app: Express): void {
           semesterId: data.semesterId, 
           name: data.name, 
           credits: data.credits,
-          difficulty: data.difficulty || "medium"
+          difficulty: data.difficulty || "medium",
+          isBinary: data.isBinary ?? false
         },
         data.components.map((c) => ({
           courseId: "", // Will be set in storage
@@ -187,6 +189,7 @@ export function registerRoutes(app: Express): void {
         name: z.string().min(1),
         credits: z.number().min(0.1).max(20),
         difficulty: z.enum(["easy", "medium", "hard"]).optional(),
+        isBinary: z.boolean().optional(),
         components: z.array(z.object({
           name: z.string().min(1),
           weight: z.number().min(0).max(100),
@@ -213,7 +216,8 @@ export function registerRoutes(app: Express): void {
         { 
           name: data.name, 
           credits: data.credits,
-          difficulty: data.difficulty
+          difficulty: data.difficulty,
+          isBinary: data.isBinary
         },
         data.components.map((c) => ({
           courseId: courseId,
